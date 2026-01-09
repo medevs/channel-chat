@@ -19,20 +19,48 @@
 
 ## Development Environment
 **Required Tools**:
-- Node.js 18+ with pnpm/yarn
+- Node.js 18+ with pnpm (always use pnpm over npm)
 - Supabase CLI for local development
 - TypeScript 5.0+
 - Vite for frontend development
 - Deno for Edge Functions development
+- Context7 MCP server for documentation lookup
 
-**Setup**:
+**CLI-First Setup (2026 Best Practices)**:
 ```bash
+# 1. Initialize Vite React TypeScript project
+pnpm create vite@latest . -- --template react-ts
 pnpm install
+
+# 2. Install Tailwind CSS 4.0 with Vite plugin
+pnpm add tailwindcss @tailwindcss/vite
+pnpm add -D @types/node
+
+# 3. Replace CSS with single Tailwind import
+echo '@import "tailwindcss";' > src/index.css
+
+# 4. Initialize shadcn/ui (interactive setup)
+pnpm dlx shadcn@latest init
+
+# 5. Initialize Supabase project structure
+supabase init
+
+# 6. Install development tools
+pnpm add -D eslint @typescript-eslint/eslint-plugin eslint-plugin-react
+pnpm add -D prettier @trivago/prettier-plugin-sort-imports
+
+# 7. Install Supabase client
+pnpm add @supabase/supabase-js
+
+# 8. Start development
 supabase start
 pnpm run dev
 ```
 
 ## Code Standards
+**Documentation-First**: Always use Context7 MCP server to lookup official documentation and best practices before implementing any feature or library integration
+**CLI-First Approach**: Always use official CLI tools for initialization and setup (Vite, Supabase, shadcn/ui, etc.) rather than manual file creation
+**Package Manager**: Always use pnpm over npm for consistency and performance
 **TypeScript**: Strict mode enabled, explicit types preferred
 **React**: Functional components with hooks, custom hooks for business logic
 **Styling**: Tailwind CSS with shadcn/ui components, consistent design system
