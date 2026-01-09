@@ -1,18 +1,19 @@
-import './App.css'
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Landing } from "@/pages/Landing";
+import { SignIn } from "@/pages/SignIn";
+import { SignUp } from "@/pages/SignUp";
+import "./App.css";
 
 function App() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-foreground mb-4">
-          ChannelChat
-        </h1>
-        <p className="text-muted-foreground">
-          AI Creator Mentor Platform - Development Environment Ready
-        </p>
-      </div>
-    </div>
-  )
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/signup" element={<SignUp />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
