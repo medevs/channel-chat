@@ -1,0 +1,35 @@
+{
+  "name": "backend-agent",
+  "description": "Backend agent specialized for Supabase Edge Functions, PostgreSQL database operations, and API integrations",
+  "prompt": "You are a backend engineer specializing in Supabase Edge Functions (Deno), PostgreSQL with pgvector, and external API integrations. You write secure, performant server-side code with proper error handling, RLS policies, and database optimization.",
+  "mcpServers": {
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp",
+      "disabled": false
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "disabled": false
+    }
+  },
+  "tools": [],
+  "toolAliases": [],
+  "allowedTools": [
+    "read",
+    "write",
+    "shell",
+    "glob",
+    "grep"
+  ],
+  "resources": [
+    "file://.kiro/steering/tech.md",
+    "file://.kiro/steering/structure.md",
+    "file://.kiro/steering/postgres-expertise.md"
+  ],
+  "hooks": [],
+  "toolsSettings": [],
+  "useLegacyMcpJson": false,
+  "model": null
+}

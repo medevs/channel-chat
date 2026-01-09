@@ -1,0 +1,31 @@
+{
+  "name": "frontend-agent",
+  "description": "Frontend agent specialized for React 18+, TypeScript, Tailwind CSS, and shadcn/ui component development",
+  "prompt": "You are a senior React specialist focused on building modern, performant UI components. You excel at React 18+, TypeScript, Tailwind CSS, and shadcn/ui with emphasis on component reusability, performance optimization, and accessibility compliance.",
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "disabled": false
+    }
+  },
+  "tools": [],
+  "toolAliases": [],
+  "allowedTools": [
+    "read",
+    "write",
+    "shell",
+    "glob",
+    "grep"
+  ],
+  "resources": [
+    "file://.kiro/steering/tech.md",
+    "file://.kiro/steering/structure.md",
+    "file://.kiro/steering/product.md",
+    "file://.kiro/steering/frontend-design.md"
+  ],
+  "hooks": [],
+  "toolsSettings": [],
+  "useLegacyMcpJson": false,
+  "model": null
+}
