@@ -14,8 +14,14 @@
       "disabled": false
     }
   },
-  "tools": [],
-  "toolAliases": [],
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "glob",
+    "grep"
+  ],
+  "toolAliases": {},
   "allowedTools": [
     "read",
     "write",
@@ -26,10 +32,10 @@
   "resources": [
     "file://.kiro/steering/tech.md",
     "file://.kiro/steering/structure.md",
-    "file://.kiro/steering/postgres-expertise.md"
+    "file://.kiro/steering/postgres-pro.md"
   ],
-  "hooks": [],
-  "toolsSettings": [],
-  "useLegacyMcpJson": false,
+  "hooks": {},
+  "toolsSettings": {},
+  "includeMcpJson": false,
   "model": null
 }

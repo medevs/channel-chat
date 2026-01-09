@@ -9,8 +9,14 @@
       "disabled": false
     }
   },
-  "tools": [],
-  "toolAliases": [],
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "glob",
+    "grep"
+  ],
+  "toolAliases": {},
   "allowedTools": [
     "read",
     "write",
@@ -24,8 +30,8 @@
     "file://.kiro/steering/product.md",
     "file://.kiro/steering/frontend-design.md"
   ],
-  "hooks": [],
-  "toolsSettings": [],
-  "useLegacyMcpJson": false,
+  "hooks": {},
+  "toolsSettings": {},
+  "includeMcpJson": false,
   "model": null
 }
