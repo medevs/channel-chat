@@ -62,8 +62,8 @@ The following example shows an MCP registry file containing both a remote (HTTP)
         "version": "1.0.0",
         "packages": [
           {
-            "registryType": "npm",
-            "registryBaseUrl": "https://npm.acme.com",
+            "registryType": "pnpm",
+            "registryBaseUrl": "https://pnpm.acme.com",
             "identifier": "@acme/my-server",
             "transport": {
               "type": "stdio"
@@ -114,13 +114,13 @@ name | HTTP header name. |  | "Authorization"
 value | HTTP header value. |  | "Bearer mF_9.B5f-4.1JqM"  
 **Local (stdio) server attributes**  
 packages | Array with exactly one entry containing the MCP server definition. |  | -  
-registryType |  Must be one of "npm", "pypi", or "oci". The following package runners are used to download and run the MCP server package:
-  * For registry type "npm", the "npx" runner is used
+registryType |  Must be one of "pnpm", "pypi", or "oci". The following package runners are used to download and run the MCP server package:
+  * For registry type "pnpm", the "npx" runner is used
   * For "pypi", "uvx" is used
   * For "oci", "docker" is used
 
-Client machines must have the appropriate package runners pre-installed. |  | “npm”  
-registryBaseUrl | Package registry URL. | Yes | "<https://npm.acme.com>"  
+Client machines must have the appropriate package runners pre-installed. |  | “pnpm”  
+registryBaseUrl | Package registry URL. | Yes | "<https://pnpm.acme.com>"  
 identifier | Server package identifier. |  | "@acme/my-server"  
 transport | Object with exactly one property, "type". |  | -  
 type | Must be "stdio". |  | “stdio”  
@@ -231,9 +231,9 @@ The following JSON schema defines the MCP registry file format supported by Kiro
     "Package": {
       "properties": {
         "registryType": {
-          "description": "Registry type indicating how to download packages (e.g., 'npm', 'pypi', 'oci')",
+          "description": "Registry type indicating how to download packages (e.g., 'pnpm', 'pypi', 'oci')",
           "enum": [
-            "npm",
+            "pnpm",
             "pypi",
             "oci"
           ],

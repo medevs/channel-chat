@@ -29,8 +29,8 @@ When operating in either of these modes, you can view individual or all file cha
 ## Trusted commands[](https://kiro.dev/docs/cli/privacy-and-security/#trusted-commands)
 By default, Kiro requires approval before running any command. You can create your own trusted commands list by searching for **Kiro Agent: Trusted Commands** in your settings.
 Kiro uses simple string prefix matching to determine if a command should be automatically trusted:
-  * **Exact matching** : Commands must match exactly (e.g., `npm install`)
-  * **Wildcard matching** : Use `*` to trust command variations (e.g., `npm *` trusts all npm commands)
+  * **Exact matching** : Commands must match exactly (e.g., `pnpm install`)
+  * **Wildcard matching** : Use `*` to trust command variations (e.g., `pnpm *` trusts all pnpm commands)
   * **Universal trust** : Use `*` alone to trust all commands (use with extreme caution)
 
 

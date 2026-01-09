@@ -29,7 +29,7 @@ You will analyze four key artifacts:
 
 **Plan Command:**
 Read this to understand the planning process and what instructions guide plan creation.
-.claude/commands/plan-feature.md
+.kiro/propmts/plan-feature.md
 
 **Generated Plan:**
 Read this to understand what the agent was SUPPOSED to do.
@@ -37,7 +37,7 @@ Plan file: $1
 
 **Execute Command:**
 Read this to understand the execution process and what instructions guide implementation.
-.claude/commands/execute.md
+.kiro/propmts/execute.md
 
 **Execution Report:**
 Read this to understand what the agent ACTUALLY did and why.

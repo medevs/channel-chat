@@ -4,7 +4,7 @@ Kiro CLI provides two AI-powered assistance features to help you work more effic
   * **Inline Suggestions** : Gray "ghost text" that appears as you type
 
 
-These features work independently and support hundreds of popular command line tools including `git`, `npm`, `docker`, and `aws`.
+These features work independently and support hundreds of popular command line tools including `git`, `pnpm`, `docker`, and `aws`.
 ## Autocomplete dropdown menu[](https://kiro.dev/docs/cli/autocomplete/#autocomplete-dropdown-menu)
 The autocomplete dropdown appears to the right of your cursor when typing commands, showing available options, subcommands, and arguments that you can select using arrow keys.
 ### Using autocomplete[](https://kiro.dev/docs/cli/autocomplete/#using-autocomplete)
@@ -77,7 +77,7 @@ The autocomplete system supports hundreds of command line tools:
 ### Popular tools[](https://kiro.dev/docs/cli/autocomplete/#popular-tools)
   * **Git** : Branch names, commit hashes, file paths
   * **Docker** : Container names, image tags, commands
-  * **npm/yarn** : Package names, scripts, dependencies
+  * **pnpm/yarn** : Package names, scripts, dependencies
   * **kubectl** : Resources, namespaces, contexts
   * **terraform** : Resources, providers, variables
   * **aws** : Services, regions, resource names
@@ -85,7 +85,7 @@ The autocomplete system supports hundreds of command line tools:
 
 ### Language tools[](https://kiro.dev/docs/cli/autocomplete/#language-tools)
   * **Python** : `pip`, `poetry`, `conda`
-  * **Node.js** : `npm`, `yarn`, `pnpm`
+  * **Node.js** : `pnpm`, `yarn`, `pnpm`
   * **Ruby** : `gem`, `bundle`
   * **Go** : `go mod`, `go build`
 

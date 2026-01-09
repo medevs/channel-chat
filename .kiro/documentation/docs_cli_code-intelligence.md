@@ -13,9 +13,9 @@ Here's how you can enable Kiro CLI to use LSP servers:
 **Supported Languages**
 Language | Extensions | Server | Install Command  
 ---|---|---|---  
-TypeScript/JavaScript | .ts, .js, .tsx, .jsx | typescript-language-server | `npm install -g typescript-language-server typescript`  
+TypeScript/JavaScript | .ts, .js, .tsx, .jsx | typescript-language-server | `pnpm install -g typescript-language-server typescript`  
 Rust | .rs | rust-analyzer | `rustup component add rust-analyzer`  
-Python | .py | jedi-language-server | `npm install -g pyright or pip install pyright`  
+Python | .py | jedi-language-server | `pnpm install -g pyright or pip install pyright`  
 Go | .go | gopls | `go install golang.org/x/tools/gopls@latest`  
 Java | .java | jdtls | `brew install jdtls (macOS)`  
 Ruby | .rb | solargraph | `gem install solargraph`  

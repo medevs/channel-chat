@@ -344,7 +344,7 @@ kiro-cli mcp add \
 **Setup:**
 ```bash
 # Install language servers first
-npm install -g typescript-language-server typescript  # TypeScript
+pnpm install -g typescript-language-server typescript  # TypeScript
 rustup component add rust-analyzer                    # Rust
 pip install pyright                                   # Python
 

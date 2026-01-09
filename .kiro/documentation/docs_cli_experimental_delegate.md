@@ -327,7 +327,7 @@ json
   "allowedTools": ["shell"],
   "toolsSettings": {
     "shell": {
-      "allowedCommands": ["npm test", "pytest", "cargo test"]
+      "allowedCommands": ["pnpm test", "pytest", "cargo test"]
     }
   }
 }

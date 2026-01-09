@@ -229,7 +229,7 @@ You can create your own MCP servers to extend Kiro's capabilities for your speci
 To discover additional MCP servers:
   * Visit the [MCP Registry](https://github.com/modelcontextprotocol/registry)
   * Check the [GitHub MCP Organization](https://github.com/modelcontextprotocol)
-  * Search for **mcp-server** on npm or PyPI
+  * Search for **mcp-server** on pnpm or PyPI
 
 
 ## In the meantime[](https://kiro.dev/docs/cli/mcp/examples/#in-the-meantime)

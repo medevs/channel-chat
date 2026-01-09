@@ -1,7 +1,7 @@
 ---
 description: Implement fix from RCA document for GitHub issue
 argument-hint: [github-issue-id]
-allowed-tools: Read, Write, Edit, Bash(ruff:*), Bash(mypy:*), Bash(pytest:*), Bash(npm:*), Bash(bun:*)
+allowed-tools: Read, Write, Edit, Bash(ruff:*), Bash(mypy:*), Bash(pytest:*), Bash(pnpm:*), Bash(bun:*)
 ---
 
 # Implement Fix: GitHub Issue #$ARGUMENTS

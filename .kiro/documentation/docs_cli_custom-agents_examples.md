@@ -272,8 +272,8 @@ json
     },
     "shell": {
       "allowedCommands": [
-        "npm test",
-        "npm run build",
+        "pnpm test",
+        "pnpm run build",
         "python manage.py test",
         "docker-compose up",
         "docker-compose down"

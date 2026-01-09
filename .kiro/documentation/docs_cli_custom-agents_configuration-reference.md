@@ -749,7 +749,7 @@ json
     ],
     "stop": [
       {
-        "command": "npm test"
+        "command": "pnpm test"
       }
     ]
   }
