@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +11,84 @@ import {
 } from "@/components/ui/card";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
+import { useAuth } from "@/hooks/useAuth";
+import { validateEmail } from "@/lib/validation";
+import type { SignUpFormData } from "@/types/auth";
 
 export function SignUp() {
+  const { signUp } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [formData, setFormData] = useState<SignUpFormData>({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    terms: false,
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleOAuthClick = (provider: string) => {
+    // TODO: Implement OAuth authentication
+    alert(`${provider} authentication coming soon!`);
+  };
+
+  const handleTermsClick = (e: React.MouseEvent, type: string) => {
+    e.preventDefault();
+    alert(`${type} page coming soon!`);
+  };
+
+  const validateForm = (): string | null => {
+    if (!formData.fullName.trim()) {
+      return "Full name is required";
+    }
+    
+    const emailError = validateEmail(formData.email);
+    if (emailError) return emailError;
+    
+    if (formData.password.length < 6) {
+      return "Password must be at least 6 characters";
+    }
+    if (formData.password !== formData.confirmPassword) {
+      return "Passwords do not match";
+    }
+    if (!formData.terms) {
+      return "You must agree to the Terms of Service and Privacy Policy";
+    }
+    return null;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await signUp(formData.email, formData.password, formData.fullName);
+      // Show email confirmation message instead of redirecting
+      setUserEmail(formData.email);
+      setEmailSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An error occurred during sign up");
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-red-50">
       <Navigation />
@@ -32,96 +109,177 @@ export function SignUp() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <label
-                  htmlFor="name"
-                  className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
-                >
-                  Full Name
-                </label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="Enter your full name"
-                  className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
-                />
-              </div>
+              {emailSent ? (
+                // Email confirmation message
+                <div className="text-center space-y-6">
+                  <div className="p-6 bg-green-50 border border-green-200 rounded-xl">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-green-900 mb-2">
+                      Check Your Email!
+                    </h3>
+                    <p className="text-green-700 mb-4">
+                      We sent a confirmation email to <span className="font-semibold">{userEmail}</span>
+                    </p>
+                    <p className="text-sm text-green-600">
+                      Please check your inbox and click the confirmation link to activate your account.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <p className="text-slate-600 text-sm">
+                      Didn't receive the email? Check your spam folder or{" "}
+                      <button 
+                        onClick={() => {
+                          setEmailSent(false);
+                          setError(null);
+                        }}
+                        className="text-orange-600 hover:text-orange-700 font-bold underline"
+                      >
+                        try again
+                      </button>
+                    </p>
+                    
+                    <Link
+                      to="/signin"
+                      className="inline-block w-full"
+                    >
+                      <Button className="w-full h-12 text-lg gradient-bg font-bold shadow-lg hover:shadow-xl hover:shadow-orange-500/25 transform hover:scale-105 transition-all duration-300">
+                        Go to Sign In →
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                // Original signup form
+                <>
+                  {error && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                      <p className="text-sm text-red-600 font-medium">{error}</p>
+                    </div>
+                  )}
 
-              <div className="space-y-2">
-                <label
-                  htmlFor="email"
-                  className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
-                >
-                  Email Address
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="password"
-                  className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
-                >
-                  Password
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Create a strong password"
-                  className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
-                >
-                  Confirm Password
-                </label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirm your password"
-                  className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
-                />
-              </div>
-
-              <div className="flex items-start space-x-3 p-4 bg-orange-50 rounded-xl border border-orange-200">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  className="mt-1 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
-                />
-                <label
-                  htmlFor="terms"
-                  className="text-sm text-slate-700 leading-relaxed"
-                >
-                  I agree to the{" "}
-                  <a
-                    href="#"
-                    className="text-orange-600 hover:text-orange-700 font-bold underline"
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="fullName"
+                    className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
                   >
-                    Terms of Service
-                  </a>{" "}
-                  and{" "}
-                  <a
-                    href="#"
-                    className="text-orange-600 hover:text-orange-700 font-bold underline"
-                  >
-                    Privacy Policy
-                  </a>
-                </label>
-              </div>
+                    Full Name
+                  </label>
+                  <Input
+                    id="fullName"
+                    name="fullName"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={formData.fullName}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                    className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
+                  />
+                </div>
 
-              <Button className="w-full h-12 text-lg gradient-bg font-bold shadow-lg hover:shadow-xl hover:shadow-orange-500/25 transform hover:scale-105 transition-all duration-300">
-                Create Account →
-              </Button>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="email"
+                    className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
+                  >
+                    Email Address
+                  </label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                    className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="password"
+                    className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
+                  >
+                    Password
+                  </label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Create a strong password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                    className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="confirmPassword"
+                    className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
+                  >
+                    Confirm Password
+                  </label>
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                    className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
+                  />
+                </div>
+
+                <div className="flex items-start space-x-3 p-4 bg-orange-50 rounded-xl border border-orange-200">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    name="terms"
+                    checked={formData.terms}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                    className="mt-1 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                  />
+                  <label
+                    htmlFor="terms"
+                    className="text-sm text-slate-700 leading-relaxed"
+                  >
+                    I agree to the{" "}
+                    <a
+                      href="#"
+                      onClick={(e) => handleTermsClick(e, "Terms of Service")}
+                      className="text-orange-600 hover:text-orange-700 font-bold underline"
+                    >
+                      Terms of Service
+                    </a>{" "}
+                    and{" "}
+                    <a
+                      href="#"
+                      onClick={(e) => handleTermsClick(e, "Privacy Policy")}
+                      className="text-orange-600 hover:text-orange-700 font-bold underline"
+                    >
+                      Privacy Policy
+                    </a>
+                  </label>
+                </div>
+
+                <Button 
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-12 text-lg gradient-bg font-bold shadow-lg hover:shadow-xl hover:shadow-orange-500/25 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {loading ? "Creating Account..." : "Create Account →"}
+                </Button>
+              </form>
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -137,6 +295,7 @@ export function SignUp() {
               <div className="grid grid-cols-2 gap-4">
                 <Button
                   variant="outline"
+                  onClick={() => handleOAuthClick("Google")}
                   className="w-full h-12 border-2 border-slate-200 hover:border-orange-500 hover:bg-orange-50 font-semibold"
                 >
                   <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -161,6 +320,7 @@ export function SignUp() {
                 </Button>
                 <Button
                   variant="outline"
+                  onClick={() => handleOAuthClick("Facebook")}
                   className="w-full h-12 border-2 border-slate-200 hover:border-orange-500 hover:bg-orange-50 font-semibold"
                 >
                   <svg
@@ -183,6 +343,8 @@ export function SignUp() {
                   Sign in
                 </Link>
               </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

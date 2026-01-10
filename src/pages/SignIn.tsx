@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,8 +11,76 @@ import {
 } from "@/components/ui/card";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
+import { useAuth } from "@/hooks/useAuth";
+import { validateEmail } from "@/lib/validation";
+import type { SignInFormData } from "@/types/auth";
 
 export function SignIn() {
+  const navigate = useNavigate();
+  const { signIn } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState<SignInFormData>({
+    email: "",
+    password: "",
+    rememberMe: false,
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleOAuthClick = (provider: string) => {
+    // TODO: Implement OAuth authentication
+    alert(`${provider} authentication coming soon!`);
+  };
+
+  const handleForgotPassword = () => {
+    // TODO: Implement password reset
+    alert("Password reset functionality coming soon!");
+  };
+
+  const validateForm = (): string | null => {
+    const emailError = validateEmail(formData.email);
+    if (emailError) return emailError;
+    
+    if (!formData.password) {
+      return "Password is required";
+    }
+    return null;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await signIn(formData.email, formData.password);
+      navigate("/chat");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "An error occurred during sign in";
+      
+      // Provide better messaging for email confirmation
+      if (errorMessage.includes("Email not confirmed") || errorMessage.includes("email_not_confirmed")) {
+        setError("Please check your email and click the confirmation link before signing in. Check your spam folder if you don't see it.");
+      } else {
+        setError(errorMessage);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-orange-50 to-red-50">
       <Navigation />
@@ -32,57 +101,85 @@ export function SignIn() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <label
-                  htmlFor="email"
-                  className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
-                >
-                  Email Address
-                </label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your email"
-                  className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
-                />
-              </div>
+              {error && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-sm text-red-600 font-medium">{error}</p>
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <label
-                  htmlFor="password"
-                  className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
-                >
-                  Password
-                </label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    className="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="email"
+                    className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
+                  >
+                    Email Address
+                  </label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                    className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
                   />
-                  <span className="text-slate-600 font-medium">
-                    Remember me
-                  </span>
-                </label>
-                <a
-                  href="#"
-                  className="text-orange-600 hover:text-orange-700 font-bold"
-                >
-                  Forgot password?
-                </a>
-              </div>
+                </div>
 
-              <Button className="w-full h-12 text-lg gradient-bg font-bold shadow-lg hover:shadow-xl hover:shadow-orange-500/25 transform hover:scale-105 transition-all duration-300">
-                Sign In →
-              </Button>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="password"
+                    className="block text-left text-sm font-bold text-slate-900 uppercase tracking-wide"
+                  >
+                    Password
+                  </label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    disabled={loading}
+                    className="w-full h-12 text-lg border-2 border-slate-200 focus:border-orange-500 focus:ring-orange-500/20 rounded-xl"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      name="rememberMe"
+                      checked={formData.rememberMe}
+                      onChange={handleInputChange}
+                      disabled={loading}
+                      className="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                    />
+                    <span className="text-slate-600 font-medium">
+                      Remember me
+                    </span>
+                  </label>
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleForgotPassword();
+                    }}
+                    className="text-orange-600 hover:text-orange-700 font-bold"
+                  >
+                    Forgot password?
+                  </a>
+                </div>
+
+                <Button 
+                  type="submit"
+                  disabled={loading}
+                  className="w-full h-12 text-lg gradient-bg font-bold shadow-lg hover:shadow-xl hover:shadow-orange-500/25 transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {loading ? "Signing In..." : "Sign In →"}
+                </Button>
+              </form>
 
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -98,6 +195,7 @@ export function SignIn() {
               <div className="grid grid-cols-2 gap-4">
                 <Button
                   variant="outline"
+                  onClick={() => handleOAuthClick("Google")}
                   className="w-full h-12 border-2 border-slate-200 hover:border-orange-500 hover:bg-orange-50 font-semibold"
                 >
                   <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -122,6 +220,7 @@ export function SignIn() {
                 </Button>
                 <Button
                   variant="outline"
+                  onClick={() => handleOAuthClick("Facebook")}
                   className="w-full h-12 border-2 border-slate-200 hover:border-orange-500 hover:bg-orange-50 font-semibold"
                 >
                   <svg
