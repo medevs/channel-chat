@@ -2,13 +2,14 @@ Perform a safe git commit.
 
 Before committing:
 
-* Scan all staged files for secrets (API keys, tokens, passwords).
+* Scan all files for secrets (API keys, tokens, passwords) BEFORE staging them.
   Abort immediately if anything sensitive is found and report the file and line.
 * Ensure code is formatted and type-safe.
 * Confirm new logic includes appropriate tests.
 
 Then:
 
+* Stage all files with `git add -A`
 * Analyze the staged changes.
 * Generate a concise **Conventional Commit** message in the format:
   `<type>(<scope>): <summary>`
@@ -22,4 +23,3 @@ If all checks pass:
 If any check fails:
 
 * Abort and clearly explain why.
-

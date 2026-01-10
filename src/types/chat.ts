@@ -1,30 +1,19 @@
-export interface Creator {
-  id: string;
-  name: string;
-  avatar: string;
-  subscriberCount: string;
-  videosIndexed: number;
-  status: 'processing' | 'completed' | 'failed' | 'no_captions' | 'partial';
-  progress?: number;
-}
+// Re-export all types from the main types file to maintain compatibility
+export type {
+  Creator,
+  ChatMessage,
+  VideoSource,
+  AnswerConfidence,
+  AnswerEvidence,
+  ActiveVideo,
+  RagChatResponse,
+  VideoImportMode,
+  ImportSettings,
+  ContentTypeOptions,
+  IngestChannelResponse,
+} from '@/lib/types';
 
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  confidence?: ConfidenceLevel;
-  sources?: VideoSource[];
-}
-
-export interface VideoSource {
-  id: string;
-  title: string;
-  thumbnail: string;
-  timestamp?: number;
-  url: string;
-}
-
+// Legacy types for backward compatibility
 export interface ConfidenceLevel {
   level: 'high' | 'medium' | 'low' | 'not_covered';
   label: string;
@@ -36,21 +25,21 @@ export interface ConfidenceLevel {
 export interface ChatSession {
   id: string;
   creatorId: string;
-  messages: ChatMessage[];
+  messages: import('@/lib/types').ChatMessage[];
   updatedAt: Date;
 }
 
 export interface ChatState {
-  selectedCreator: Creator | null;
+  selectedCreator: import('@/lib/types').Creator | null;
   currentSession: ChatSession | null;
-  messages: ChatMessage[];
+  messages: import('@/lib/types').ChatMessage[];
   isTyping: boolean;
   isLoading: boolean;
 }
 
 export interface VideoPlayerState {
   isOpen: boolean;
-  currentVideo: VideoSource | null;
+  currentVideo: import('@/lib/types').VideoSource | null;
   timestamp?: number;
 }
 

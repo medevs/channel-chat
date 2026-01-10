@@ -4,7 +4,16 @@ import { Button } from "@/components/ui/button";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { SourceCard } from "./SourceCard";
 import { cn } from "@/lib/utils";
-import type { ChatMessage, Creator } from "@/types/chat";
+import type { ChatMessage, Creator, ConfidenceLevel } from "@/types/chat";
+
+// Utility function to create confidence level object
+const createConfidenceLevel = (confidence: string, evidenceCount?: number, videoCount?: number): ConfidenceLevel => ({
+  level: confidence as 'high' | 'medium' | 'low' | 'not_covered',
+  label: confidence.charAt(0).toUpperCase() + confidence.slice(1),
+  description: `${confidence} confidence response`,
+  evidenceCount,
+  videoCount,
+});
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -68,7 +77,11 @@ export function MessageBubble({
             {/* Confidence Badge */}
             {message.confidence && (
               <ConfidenceBadge 
-                confidence={message.confidence}
+                confidence={createConfidenceLevel(
+                  message.confidence,
+                  message.sources?.length,
+                  message.sources ? new Set(message.sources.map(s => s.id)).size : undefined
+                )}
                 evidenceCount={message.sources?.length}
                 videoCount={message.sources ? new Set(message.sources.map(s => s.id)).size : undefined}
               />
@@ -104,7 +117,7 @@ export function MessageBubble({
                     <SourceCard
                       key={source.id}
                       source={source}
-                      onClick={() => onSourceClick(source.id, source.timestamp)}
+                      onClick={() => onSourceClick(source.id, source.timestampSeconds || undefined)}
                     />
                   ))}
                 </div>

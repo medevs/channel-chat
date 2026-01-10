@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { AddChannel } from '@/components/AddChannel';
 import type { Creator } from '@/types/chat';
 
 interface AppSidebarProps {
@@ -27,6 +28,7 @@ interface AppSidebarProps {
   isMobile: boolean;
   isTablet: boolean;
   className?: string;
+  onChannelAdded?: (creator: Creator) => void;
 }
 
 export function AppSidebar({
@@ -42,7 +44,8 @@ export function AppSidebar({
   onToggle,
   isMobile,
   isTablet,
-  className
+  className,
+  onChannelAdded
 }: AppSidebarProps) {
   const { user, signOut } = useAuth();
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -158,6 +161,11 @@ export function AppSidebar({
               {!isCollapsed && "Add Creator"}
             </Button>
           </div>
+
+          {/* Add Channel */}
+          {!isCollapsed && onChannelAdded && (
+            <AddChannel onChannelAdded={onChannelAdded} />
+          )}
 
           {/* Creators List */}
           <div className="flex-1 overflow-y-auto scrollbar-thin">

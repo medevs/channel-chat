@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Play, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -11,16 +12,20 @@ interface SourceCardProps {
 }
 
 export function SourceCard({ source, onClick, isActive = false, className }: SourceCardProps) {
-  const formatTimestamp = (seconds?: number) => {
-    if (!seconds) return null;
-    
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
+  const { hasTimestamp, formattedTime } = useMemo(() => {
+    const formatTimestamp = (seconds?: number | null) => {
+      if (!seconds) return null;
+      
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = Math.floor(seconds % 60);
+      return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    };
 
-  const hasTimestamp = source.timestamp !== undefined;
-  const formattedTime = formatTimestamp(source.timestamp);
+    const hasTimestamp = source.timestampSeconds !== undefined && source.timestampSeconds !== null;
+    const formattedTime = formatTimestamp(source.timestampSeconds);
+
+    return { hasTimestamp, formattedTime };
+  }, [source.timestampSeconds]);
 
   return (
     <Card
