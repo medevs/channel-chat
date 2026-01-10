@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { MessageSquare, Plus, Settings, LogOut, ChevronLeft, X, Bookmark, User, MoreVertical } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -11,14 +11,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import { AddChannel } from '@/components/AddChannel';
+import { AddCreatorModal } from '@/components/AddCreatorModal';
 import type { Creator } from '@/types/chat';
 
 interface AppSidebarProps {
   creators: Creator[];
   activeCreatorId: string | null;
   onSelectCreator: (creatorId: string) => void;
-  onAddCreator: () => void;
   onDeleteCreator: (creatorId: string) => Promise<{ success: boolean }>;
   onOpenSettings: () => void;
   onOpenSaved: () => void;
@@ -35,7 +34,6 @@ export function AppSidebar({
   creators,
   activeCreatorId,
   onSelectCreator,
-  onAddCreator,
   onDeleteCreator,
   onOpenSettings,
   onOpenSaved,
@@ -51,6 +49,18 @@ export function AppSidebar({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isCollapsed = !isOpen && !isMobile;
   const isMobileOrTablet = isMobile || isTablet;
+  const [isAddCreatorModalOpen, setIsAddCreatorModalOpen] = useState(false);
+
+  const handleAddCreator = () => {
+    setIsAddCreatorModalOpen(true);
+  };
+
+  const handleCreatorAdded = (creator: Creator) => {
+    if (onChannelAdded) {
+      onChannelAdded(creator);
+    }
+    setIsAddCreatorModalOpen(false);
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -151,7 +161,7 @@ export function AppSidebar({
           {/* Add Creator Button */}
           <div className="p-4 border-b border-sidebar-border">
             <Button
-              onClick={onAddCreator}
+              onClick={handleAddCreator}
               className={cn(
                 "w-full justify-start gap-3 bg-primary hover:bg-primary/90 text-primary-foreground",
                 isCollapsed && "justify-center px-0"
@@ -162,10 +172,7 @@ export function AppSidebar({
             </Button>
           </div>
 
-          {/* Add Channel */}
-          {!isCollapsed && onChannelAdded && (
-            <AddChannel onChannelAdded={onChannelAdded} />
-          )}
+          {/* Add Channel - Removed, now using modal */}
 
           {/* Creators List */}
           <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -315,6 +322,13 @@ export function AppSidebar({
           </div>
         </div>
       </aside>
+
+      {/* Add Creator Modal */}
+      <AddCreatorModal
+        isOpen={isAddCreatorModalOpen}
+        onClose={() => setIsAddCreatorModalOpen(false)}
+        onAddCreator={handleCreatorAdded}
+      />
     </>
   );
 }

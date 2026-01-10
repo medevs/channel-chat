@@ -31,18 +31,7 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  // Load or create session when channel changes
-  useEffect(() => {
-    if (!channelId || !user) {
-      setSessionId(null);
-      setMessages([]);
-      return;
-    }
-
-    loadOrCreateSession(channelId);
-  }, [channelId, user, loadOrCreateSession]);
-
-  const loadOrCreateSession = async (cId: string) => {
+  const loadOrCreateSession = useCallback(async (cId: string) => {
     if (!user) return;
 
     setIsLoadingHistory(true);
@@ -124,7 +113,18 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }, [user]);
+
+  // Load or create session when channel changes
+  useEffect(() => {
+    if (!channelId || !user) {
+      setSessionId(null);
+      setMessages([]);
+      return;
+    }
+
+    loadOrCreateSession(channelId);
+  }, [channelId, user, loadOrCreateSession]);
 
   const saveMessage = async (
     role: 'user' | 'assistant',
@@ -322,7 +322,7 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
     } catch (err) {
       console.error('[Chat] Error clearing history:', err);
     }
-  }, [saveMessage, sessionId]);
+  }, [sessionId]);
 
   return {
     messages,

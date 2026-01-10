@@ -8,7 +8,9 @@ import { ChatArea } from "@/components/chat/ChatArea";
 import { VideoPanel } from "@/components/chat/VideoPanel";
 import { Button } from "@/components/ui/button";
 import { Menu, Loader2 } from "lucide-react";
-import type { Creator, VideoSource } from "@/types/chat";
+import { supabase } from "@/lib/supabase";
+import type { Creator, VideoSource, VideoImportMode } from "@/types/chat";
+import type { Tables } from "@/types/database";
 
 export function Chat() {
   const { user } = useAuth();
@@ -18,9 +20,99 @@ export function Chat() {
   const isMobile = breakpoint === 'mobile';
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [creators, setCreators] = useState<Creator[]>([]);
+  const [isLoadingCreators, setIsLoadingCreators] = useState(true);
+
+  // Load creators from database
+  useEffect(() => {
+    const loadCreators = async () => {
+      if (!user) return;
+      
+      try {
+        // Query user_creators to get the user's channels, then join with channels table
+        const { data, error } = await supabase
+          .from('user_creators')
+          .select(`
+            channels (
+              id,
+              channel_id,
+              channel_name,
+              channel_url,
+              avatar_url,
+              subscriber_count,
+              indexed_videos,
+              total_videos,
+              ingestion_status,
+              ingestion_progress,
+              created_at
+            )
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error loading creators:', error);
+          return;
+        }
+
+        if (data) {
+          const formattedCreators: Creator[] = data
+            .filter(item => item.channels) // Filter out null channels
+            .map(item => {
+              const channel = item.channels as unknown as Tables<'channels'>;
+              const ingestionStatus = channel.ingestion_status as Creator['ingestionStatus'] || 'pending';
+              const legacyStatus = ingestionStatus === 'processing' ? 'processing' : 
+                                 ingestionStatus === 'completed' ? 'completed' :
+                                 ingestionStatus === 'failed' ? 'failed' :
+                                 ingestionStatus === 'partial' ? 'partial' :
+                                 ingestionStatus === 'no_captions' ? 'no_captions' : 'completed';
+              
+              return {
+                id: channel.id,
+                channelId: channel.channel_id,
+                name: channel.channel_name,
+                channelUrl: channel.channel_url,
+                avatarUrl: channel.avatar_url,
+                subscribers: channel.subscriber_count || '0',
+                indexedVideos: channel.indexed_videos || 0,
+                totalVideos: channel.total_videos || 0,
+                ingestionStatus,
+                ingestionProgress: channel.ingestion_progress || 0,
+                ingestionMethod: null,
+                errorMessage: null,
+                lastIndexedAt: null,
+                ingestVideos: true,
+                ingestShorts: false,
+                ingestLives: false,
+                videoImportMode: 'latest' as VideoImportMode,
+                videoImportLimit: null,
+                publicSlug: null,
+                // Legacy compatibility
+                avatar: channel.avatar_url || '',
+                subscriberCount: channel.subscriber_count || '0',
+                videosIndexed: channel.indexed_videos || 0,
+                status: legacyStatus,
+                progress: channel.ingestion_progress || 0,
+              };
+            });
+          setCreators(formattedCreators);
+        }
+      } catch (error) {
+        console.error('Error loading creators:', error);
+      } finally {
+        setIsLoadingCreators(false);
+      }
+    };
+
+    loadCreators();
+  }, [user]);
 
   const handleChannelAdded = (creator: Creator) => {
-    setCreators(prev => [...prev, creator]);
+    setCreators(prev => {
+      // Check if creator already exists
+      const exists = prev.find(c => c.id === creator.id);
+      if (exists) return prev;
+      return [...prev, creator];
+    });
     chat.selectCreator(creator);
   };
 
@@ -71,6 +163,17 @@ export function Chat() {
     );
   }
 
+  if (isLoadingCreators) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading creators...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex h-screen w-full overflow-hidden bg-background">
       {showHamburger && (
@@ -88,7 +191,6 @@ export function Chat() {
         creators={creators}
         activeCreatorId={chat.selectedCreator?.id || null}
         onSelectCreator={handleSelectCreator}
-        onAddCreator={() => {}} // We'll use AddChannel component instead
         onDeleteCreator={async () => ({ success: true })}
         onOpenSettings={() => {}}
         onOpenSaved={() => {}}

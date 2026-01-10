@@ -1,7 +1,10 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import type { Creator } from '@/lib/types';
+import type { Creator, ContentTypeOptions, ImportSettings } from '@/lib/types';
+
+// Configuration constants
+const INGEST_TIMEOUT_MS = 30000; // 30 seconds
 
 export function useIngestChannel() {
   const { user } = useAuth();
@@ -9,7 +12,9 @@ export function useIngestChannel() {
   const [error, setError] = useState<string | null>(null);
 
   const ingestChannel = useCallback(async (
-    channelUrl: string
+    channelUrl: string,
+    contentTypes?: ContentTypeOptions,
+    importSettings?: ImportSettings
   ): Promise<Creator | null> => {
     if (!user) {
       setError('You must be logged in to add channels');
@@ -24,17 +29,18 @@ export function useIngestChannel() {
 
       // Add timeout and better error handling
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), INGEST_TIMEOUT_MS);
 
       const { data, error: functionError } = await supabase.functions.invoke('ingest-youtube-channel', {
         body: {
-          channel_url: channelUrl,
-          content_types: {
+          channelUrl: channelUrl,
+          userId: user.id,
+          contentTypes: contentTypes || {
             videos: true,
             shorts: false,
             lives: false
           },
-          import_settings: {
+          importSettings: importSettings || {
             mode: 'latest',
             limit: 3 // Test with max 3 videos
           }
@@ -46,6 +52,7 @@ export function useIngestChannel() {
 
       if (functionError) {
         console.error('Function error:', functionError);
+        console.error('Function error details:', JSON.stringify(functionError, null, 2));
         const errorMessage = functionError.message || 'Failed to add channel';
         
         // Handle specific error types
@@ -68,6 +75,7 @@ export function useIngestChannel() {
 
       if (data?.error) {
         console.error('API error:', data.error);
+        console.error('Full response:', data);
         setError(data.error);
         return null;
       }

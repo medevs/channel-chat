@@ -6,6 +6,7 @@ import { Chat } from "@/pages/Chat";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute, AuthenticatedRoute } from "@/components";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "sonner";
 import "./App.css";
 
 function App() {
@@ -49,6 +50,7 @@ function App() {
           </Routes>
         </BrowserRouter>
       </AuthProvider>
+      <Toaster />
     </TooltipProvider>
   );
 }
