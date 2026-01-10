@@ -20,13 +20,12 @@
 ## Development Environment
 **Required Tools**:
 - Node.js 18+ with pnpm (always use pnpm over npm)
-- Supabase CLI for local development
+- Supabase CLI for remote database management (NO Docker required)
 - TypeScript 5.0+
 - Vite for frontend development
-- Deno for Edge Functions development
 - Context7 MCP server for documentation lookup
 
-**CLI-First Setup (2026 Best Practices)**:
+**CLI-First Setup (2026 Best Practices - Docker-Free)**:
 ```bash
 # 1. Initialize Vite React TypeScript project
 pnpm create vite@latest . -- --template react-ts
@@ -42,8 +41,8 @@ echo '@import "tailwindcss";' > src/index.css
 # 4. Initialize shadcn/ui (interactive setup)
 pnpm dlx shadcn@latest init
 
-# 5. Initialize Supabase project structure
-supabase init
+# 5. Initialize Supabase project structure (remote only)
+pnpm dlx supabase init
 
 # 6. Install development tools
 pnpm add -D eslint @typescript-eslint/eslint-plugin eslint-plugin-react
@@ -52,9 +51,17 @@ pnpm add -D prettier @trivago/prettier-plugin-sort-imports
 # 7. Install Supabase client
 pnpm add @supabase/supabase-js
 
-# 8. Start development
-supabase start
-pnpm run dev
+# 8. Configure remote Supabase connection
+# Set up .env.local with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
+
+# 9. Link to remote project and deploy
+pnpm dlx supabase login
+pnpm dlx supabase link --project-ref YOUR_PROJECT_REF
+pnpm dlx supabase db push  # Apply migrations to remote DB
+pnpm dlx supabase functions deploy  # Deploy Edge Functions
+
+# 10. Start development (always in background)
+pnpm run dev &
 ```
 
 ## Code Standards
@@ -72,12 +79,32 @@ pnpm run dev
 **Integration Tests**: Supabase Edge Functions, database operations, external API interactions
 **End-to-End Tests**: Full user flows using Playwright MCP server (no local Playwright installation)
 **Test Coverage**: Focus on critical paths - ingestion, chat, and citation accuracy
+**Test Data**: Always use small datasets (< 5 videos) for testing to minimize costs and processing time
 
 ## Deployment Process
-**Development**: Local Supabase + Vite dev server
+**Development**: Remote Supabase + Vite dev server (always run in background with `&`)
 **Staging**: Supabase staging project + Vercel preview deployments
 **Production**: Supabase production + Vercel production deployment
-**Database Migrations**: Supabase migration system with version control
+**Database Migrations**: Supabase CLI with remote database (no Docker required)
+
+## Migration Workflow (Docker-Free)
+```bash
+# 1. Login and link to remote project
+pnpm dlx supabase login
+pnpm dlx supabase link --project-ref YOUR_PROJECT_REF
+
+# 2. Create new migration
+pnpm dlx supabase migration new migration_name
+
+# 3. Apply migration to remote database
+pnpm dlx supabase db push
+
+# 4. Deploy Edge Functions
+pnpm dlx supabase functions deploy function_name
+
+# 5. Generate TypeScript types
+pnpm dlx supabase gen types typescript --remote > src/types/database.ts
+```
 
 ## Performance Requirements
 **Response Time**: Chat responses < 3 seconds, UI interactions < 200ms
