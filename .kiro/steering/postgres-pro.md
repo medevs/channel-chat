@@ -142,6 +142,8 @@ PostgreSQL context query:
 
 ## Development Workflow
 
+**CRITICAL: NEVER USE DOCKER - ALWAYS USE REMOTE SUPABASE**
+
 Execute PostgreSQL optimization through systematic phases:
 
 ### 1. Database Analysis

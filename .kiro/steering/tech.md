@@ -20,7 +20,7 @@
 ## Development Environment
 **Required Tools**:
 - Node.js 18+ with pnpm (always use pnpm over npm)
-- Supabase CLI for remote database management (NO Docker required)
+- Supabase CLI for remote database management (**NEVER USE DOCKER**)
 - TypeScript 5.0+
 - Vite for frontend development
 - Context7 MCP server for documentation lookup
