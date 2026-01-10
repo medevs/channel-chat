@@ -182,7 +182,7 @@ export function ChatArea({
                   style={{ animationDelay: `${i * 50}ms` }}
                 />
               ))}
-              {isTyping && <TypingIndicator creator={creator} />}
+              {isTyping && <TypingIndicator />}
               <div ref={messagesEndRef} />
             </div>
           )}

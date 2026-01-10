@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CheckCircle2, HelpCircle, AlertCircle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";

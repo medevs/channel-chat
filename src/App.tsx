@@ -4,7 +4,7 @@ import { SignIn } from "@/pages/SignIn";
 import { SignUp } from "@/pages/SignUp";
 import { Chat } from "@/pages/Chat";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ProtectedRoute, AuthenticatedRoute } from "@/components";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./App.css";
 
@@ -14,9 +14,30 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/signup" element={<SignUp />} />
+            <Route 
+              path="/" 
+              element={
+                <AuthenticatedRoute>
+                  <Landing />
+                </AuthenticatedRoute>
+              } 
+            />
+            <Route 
+              path="/signin" 
+              element={
+                <AuthenticatedRoute>
+                  <SignIn />
+                </AuthenticatedRoute>
+              } 
+            />
+            <Route 
+              path="/signup" 
+              element={
+                <AuthenticatedRoute>
+                  <SignUp />
+                </AuthenticatedRoute>
+              } 
+            />
             <Route 
               path="/chat" 
               element={

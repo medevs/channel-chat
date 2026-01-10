@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState } from "react";
+import { createContext, useEffect, useState, useMemo } from "react";
 import type { ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import type { AuthContextType, AuthState } from "@/types/auth";
@@ -15,6 +15,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return {
       user: null,
       loading: true,
+      error: null,
     };
   });
 
@@ -27,14 +28,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setState({
           user: session?.user ?? null,
           loading: false,
+          error: null,
         });
       }
-    }).catch(() => {
+    }).catch((error) => {
       // Handle session fetch errors gracefully
       if (mounted) {
         setState({
           user: null,
           loading: false,
+          error: error.message || "Failed to load session",
         });
       }
     });
@@ -47,6 +50,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setState({
           user: session?.user ?? null,
           loading: false,
+          error: null,
         });
       }
     });
@@ -92,12 +96,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (error) throw error;
   };
 
-  const value: AuthContextType = {
+  const clearError = () => {
+    setState(prev => ({ ...prev, error: null }));
+  };
+
+  const value: AuthContextType = useMemo(() => ({
     ...state,
     signUp,
     signIn,
     signOut,
-  };
+    clearError,
+  }), [state]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
