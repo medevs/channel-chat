@@ -68,6 +68,7 @@ pnpm run dev &
 **Documentation-First**: Always use Context7 MCP server to lookup official documentation and best practices before implementing any feature or library integration
 **CLI-First Approach**: Always use official CLI tools for initialization and setup (Vite, Supabase, shadcn/ui, etc.) rather than manual file creation
 **Package Manager**: Always use pnpm over npm for consistency and performance
+**Comments & Documentation**: Always add clear, meaningful, and well-placed comments throughout code to improve understanding and long-term maintainability. Comments should explain WHY certain decisions were made, clarify non-obvious logic, document assumptions, edge cases, and important constraints, and provide context where the intent is not immediately clear from the code itself. Avoid redundant comments that merely restate what the code already expresses; focus on explaining complex behavior, tricky conditions, and reasoning that may not be obvious to future readers.
 **TypeScript**: Strict mode enabled, explicit types preferred
 **React**: Functional components with hooks, custom hooks for business logic
 **Styling**: Tailwind CSS with shadcn/ui components, consistent design system
