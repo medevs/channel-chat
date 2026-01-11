@@ -61,6 +61,7 @@ export type Database = {
           total_videos: number | null
           updated_at: string | null
           uploads_playlist_id: string | null
+          user_id: string | null
           video_import_limit: number | null
           video_import_mode: string | null
         }
@@ -85,6 +86,7 @@ export type Database = {
           total_videos?: number | null
           updated_at?: string | null
           uploads_playlist_id?: string | null
+          user_id?: string | null
           video_import_limit?: number | null
           video_import_mode?: string | null
         }
@@ -109,6 +111,7 @@ export type Database = {
           total_videos?: number | null
           updated_at?: string | null
           uploads_playlist_id?: string | null
+          user_id?: string | null
           video_import_limit?: number | null
           video_import_mode?: string | null
         }
@@ -532,6 +535,23 @@ export type Database = {
           messages_sent_today: number
           plan_type: string
           videos_indexed: number
+        }[]
+      }
+      get_user_channels: {
+        Args: { p_user_id?: string }
+        Returns: {
+          avatar_url: string
+          channel_id: string
+          channel_name: string
+          channel_url: string
+          created_at: string
+          id: string
+          indexed_videos: number
+          ingestion_progress: number
+          ingestion_status: string
+          subscriber_count: string
+          total_videos: number
+          updated_at: string
         }[]
       }
       increment_creator_count: {

@@ -37,9 +37,9 @@ export function useRagChat({ channelId }: UseRagChatOptions) {
           query,
           channel_id: channelId,
           conversation_history: conversationHistory,
-          match_count: 10,
-          match_threshold: 0.15,
           user_id: user?.id || null,
+          public_mode: !user,
+          client_identifier: !user ? `client-${Date.now()}` : undefined,
         },
       });
 
@@ -156,7 +156,7 @@ export function useRagChat({ channelId }: UseRagChatOptions) {
     } finally {
       setIsLoading(false);
     }
-  }, [channelId, conversationHistory, user?.id]);
+  }, [channelId, conversationHistory, user]);
 
   const clearHistory = useCallback(() => {
     setConversationHistory([]);

@@ -347,7 +347,7 @@ serve(async (req) => {
     
     // Process transcripts
     let successCount = 0;
-    // let totalChunks = 0; // Unused variable
+    let totalChunks = 0;
     const errors: string[] = [];
     
     for (let i = 0; i < transcripts.length; i++) {
@@ -365,7 +365,7 @@ serve(async (req) => {
       
       if (result.success) {
         successCount++;
-        // totalChunks += result.chunksCreated; // Unused variable
+        totalChunks += result.chunksCreated;
       } else if (result.error) {
         errors.push(`${transcript.video_id}: ${result.error}`);
       }
