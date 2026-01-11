@@ -390,5 +390,11 @@ verify_jwt = false
 [functions.rag-chat]
 verify_jwt = false
 
+[functions.extract-transcripts]
+verify_jwt = false
+
+[functions.run-pipeline]
+verify_jwt = false
+
 [functions.test-function]
 verify_jwt = false

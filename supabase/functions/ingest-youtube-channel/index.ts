@@ -6,6 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY')!;
+
 // Parse channel URL (inline from working implementation)
 function parseChannelUrl(url: string): { type: 'channel' | 'custom' | 'user' | 'handle'; id: string } | null {
   try {
@@ -122,7 +126,7 @@ function parseDuration(duration: string): number {
 
 // Fetch video metadata (inline from working implementation)
 async function fetchVideoMetadata(videoIds: string[], apiKey: string) {
-  const videos: any[] = [];
+  const videos: unknown[] = [];
   const batchSize = 50;
 
   for (let i = 0; i < videoIds.length; i += batchSize) {
@@ -171,11 +175,6 @@ serve(async (req) => {
 
   try {
     console.log('Ingestion function called');
-    
-    // Get environment variables inside the handler
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY');
     
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(
@@ -296,12 +295,22 @@ serve(async (req) => {
         .upsert({
           user_id: userId,
           channel_id: channel.id,
-          added_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
         });
       
       if (linkError) {
         console.error('Link error:', linkError);
         // Don't throw, just log
+      } else {
+        // Increment creator count for successful user association
+        console.log('Incrementing creator count for user:', userId);
+        const { error: creatorCountError } = await supabase.rpc('increment_creator_count', { 
+          p_user_id: userId 
+        });
+        if (creatorCountError) {
+          console.error('Error incrementing creator count:', creatorCountError);
+          // Don't throw, just log
+        }
       }
     }
 
@@ -369,6 +378,19 @@ serve(async (req) => {
       throw videoError;
     }
 
+    // Increment videos indexed count for user if userId provided
+    if (userId && videos.length > 0) {
+      console.log('Incrementing videos indexed for user:', userId, 'count:', videos.length);
+      const { error: videosCountError } = await supabase.rpc('increment_videos_indexed', { 
+        p_user_id: userId, 
+        p_count: videos.length 
+      });
+      if (videosCountError) {
+        console.error('Error incrementing videos count:', videosCountError);
+        // Don't throw, just log
+      }
+    }
+
     // Update channel with completion status
     const { error: finalUpdateError } = await supabase
       .from('channels')
@@ -404,6 +426,51 @@ serve(async (req) => {
         duration_seconds: v.duration_seconds,
       })),
     };
+
+    // Trigger automatic pipeline processing
+    if (videos.length > 0) {
+      console.log('Triggering automatic pipeline processing for channel:', channelInfo.channel_id);
+      
+      try {
+        // Step 1: Trigger transcript extraction
+        console.log('Invoking extract-transcripts function...');
+        const { error: extractError } = await supabase.functions.invoke('extract-transcripts', {
+          body: { channelId: channelInfo.channel_id },
+          headers: {
+            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (extractError) {
+          console.error('Error triggering transcript extraction:', extractError);
+        } else {
+          console.log('Transcript extraction triggered successfully');
+          
+          // Step 2: Trigger embedding generation (run after transcript extraction)
+          console.log('Invoking run-pipeline function...');
+          const { error: pipelineError } = await supabase.functions.invoke('run-pipeline', {
+            body: { 
+              channel_id: channelInfo.channel_id,
+              process_all: true 
+            },
+            headers: {
+              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (pipelineError) {
+            console.error('Error triggering pipeline:', pipelineError);
+          } else {
+            console.log('Pipeline triggered successfully');
+          }
+        }
+      } catch (pipelineError) {
+        console.error('Pipeline trigger failed:', pipelineError);
+        // Don't throw - ingestion was successful, pipeline is bonus
+      }
+    }
 
     console.log('Returning success response');
 
