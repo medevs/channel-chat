@@ -187,24 +187,78 @@ export type Database = {
       error_logs: {
         Row: {
           created_at: string | null
+          error_code: string | null
           error_details: Json | null
           error_message: string
+          error_stack: string | null
+          function_name: string | null
           id: string
+          metadata: Json | null
+          request_data: Json | null
           service: string
+          severity: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
+          error_code?: string | null
           error_details?: Json | null
           error_message: string
+          error_stack?: string | null
+          function_name?: string | null
           id?: string
+          metadata?: Json | null
+          request_data?: Json | null
           service: string
+          severity?: string | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
+          error_code?: string | null
           error_details?: Json | null
           error_message?: string
+          error_stack?: string | null
+          function_name?: string | null
           id?: string
+          metadata?: Json | null
+          request_data?: Json | null
           service?: string
+          severity?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      operation_locks: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          lock_key: string
+          metadata: Json | null
+          operation_type: string
+          started_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          lock_key: string
+          metadata?: Json | null
+          operation_type: string
+          started_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          lock_key?: string
+          metadata?: Json | null
+          operation_type?: string
+          started_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -264,6 +318,103 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "channels"
             referencedColumns: ["channel_id"]
+          },
+        ]
+      }
+      request_idempotency: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          idempotency_key: string
+          operation_type: string
+          request_hash: string
+          response_data: Json | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          idempotency_key: string
+          operation_type: string
+          request_hash: string
+          response_data?: Json | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          idempotency_key?: string
+          operation_type?: string
+          request_hash?: string
+          response_data?: Json | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      saved_answers: {
+        Row: {
+          channel_id: string
+          chat_session_id: string
+          content: string
+          created_at: string
+          id: string
+          message_id: string
+          sources: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          chat_session_id: string
+          content: string
+          created_at?: string
+          id?: string
+          message_id: string
+          sources?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          chat_session_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          message_id?: string
+          sources?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_answers_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["channel_id"]
+          },
+          {
+            foreignKeyName: "saved_answers_chat_session_id_fkey"
+            columns: ["chat_session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_answers_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -416,13 +567,38 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_usage: {
         Row: {
           created_at: string | null
           creators_added: number | null
           id: string
           last_message_date: string | null
+          last_reset_at: string | null
           messages_sent_today: number | null
+          messages_sent_total: number | null
+          plan_expires_at: string | null
+          plan_started_at: string | null
           plan_type: string | null
           updated_at: string | null
           user_id: string
@@ -433,7 +609,11 @@ export type Database = {
           creators_added?: number | null
           id?: string
           last_message_date?: string | null
+          last_reset_at?: string | null
           messages_sent_today?: number | null
+          messages_sent_total?: number | null
+          plan_expires_at?: string | null
+          plan_started_at?: string | null
           plan_type?: string | null
           updated_at?: string | null
           user_id: string
@@ -444,7 +624,11 @@ export type Database = {
           creators_added?: number | null
           id?: string
           last_message_date?: string | null
+          last_reset_at?: string | null
           messages_sent_today?: number | null
+          messages_sent_total?: number | null
+          plan_expires_at?: string | null
+          plan_started_at?: string | null
           plan_type?: string | null
           updated_at?: string | null
           user_id?: string
@@ -528,6 +712,106 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      acquire_operation_lock: {
+        Args: {
+          p_lock_key: string
+          p_operation_type: string
+          p_ttl_seconds?: number
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      admin_get_active_creators: { Args: never; Returns: number }
+      admin_get_active_users_today: { Args: never; Returns: number }
+      admin_get_active_users_week: { Args: never; Returns: number }
+      admin_get_avg_messages_per_user: { Args: never; Returns: number }
+      admin_get_daily_messages: {
+        Args: { days?: number }
+        Returns: {
+          date: string
+          message_count: number
+        }[]
+      }
+      admin_get_messages_month: { Args: never; Returns: number }
+      admin_get_messages_today: { Args: never; Returns: number }
+      admin_get_messages_week: { Args: never; Returns: number }
+      admin_get_plan_distribution: {
+        Args: never
+        Returns: {
+          plan_type: string
+          user_count: number
+        }[]
+      }
+      admin_get_recent_errors: {
+        Args: { limit_count?: number }
+        Returns: {
+          created_at: string
+          error_code: string
+          error_message: string
+          function_name: string
+          id: string
+          severity: string
+        }[]
+      }
+      admin_get_top_creators: {
+        Args: { limit_count?: number }
+        Returns: {
+          channel_id: string
+          channel_name: string
+          message_count: number
+        }[]
+      }
+      admin_get_total_chunks: { Args: never; Returns: number }
+      admin_get_total_creators: { Args: never; Returns: number }
+      admin_get_total_users: { Args: never; Returns: number }
+      admin_get_total_videos: { Args: never; Returns: number }
+      admin_get_users_at_limit: { Args: never; Returns: number }
+      check_idempotency: {
+        Args: {
+          p_idempotency_key: string
+          p_operation_type: string
+          p_request_hash: string
+          p_ttl_seconds?: number
+          p_user_id: string
+        }
+        Returns: {
+          existing_response: Json
+          existing_status: string
+          is_duplicate: boolean
+        }[]
+      }
+      complete_idempotency: {
+        Args: {
+          p_idempotency_key: string
+          p_response_data: Json
+          p_status?: string
+        }
+        Returns: undefined
+      }
+      decrement_creator_count: {
+        Args: { p_user_id: string }
+        Returns: {
+          created_at: string | null
+          creators_added: number | null
+          id: string
+          last_message_date: string | null
+          last_reset_at: string | null
+          messages_sent_today: number | null
+          messages_sent_total: number | null
+          plan_expires_at: string | null
+          plan_started_at: string | null
+          plan_type: string | null
+          updated_at: string | null
+          user_id: string
+          videos_indexed: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_usage"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_usage_with_limits: {
         Args: { p_user_id: string }
         Returns: {
@@ -554,6 +838,13 @@ export type Database = {
           updated_at: string
         }[]
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       increment_creator_count: {
         Args: { p_user_id: string }
         Returns: undefined
@@ -564,6 +855,27 @@ export type Database = {
       }
       increment_videos_indexed: {
         Args: { p_count: number; p_user_id: string }
+        Returns: undefined
+      }
+      log_error: {
+        Args: {
+          p_error_code?: string
+          p_error_message: string
+          p_error_stack?: string
+          p_function_name: string
+          p_metadata?: Json
+          p_request_data?: Json
+          p_severity?: string
+          p_user_id?: string
+        }
+        Returns: string
+      }
+      release_operation_lock: {
+        Args: { p_lock_key: string }
+        Returns: undefined
+      }
+      reset_daily_usage_if_needed: {
+        Args: { p_user_id: string }
         Returns: undefined
       }
       search_transcript_chunks: {
@@ -586,7 +898,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -716,6 +1028,8 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
