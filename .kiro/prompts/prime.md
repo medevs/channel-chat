@@ -6,9 +6,9 @@ Build comprehensive understanding of the codebase by analyzing structure, docume
 ## Process
 
 ### 1. Analyze Project Structure
-If this is a git repository, list tracked files:
+If this is a git repository, list tracked files excluding unnecessary directories:
 ```bash
-git ls-files
+git ls-files | grep -v -E '^(\.kiro/.agents/|\.kiro/documentation/|\.kiro/prompts/|\.kiro/settings/|examples/|public/|pnpm-lock\.yaml$|src/components/ui(/|$)|kiro-guide\.md$)'
 ```
 
 Show directory structure:
@@ -21,6 +21,8 @@ tree -L 3 -I 'node_modules|__pycache__|.git|dist|build'
 - Read README files at project root and major directories
 - Read any architecture documentation
 - Review steering documents for project context (already loaded in context)
+- Read key test files to understand testing approach
+- Review migration files to understand database evolution
 - Avoid reading anything in examples or content_plan folders
 
 ### 3. Identify Key Files
@@ -29,6 +31,8 @@ Based on the structure, identify and read:
 - Core configuration files (pyproject.toml, package.json, tsconfig.json)
 - Key model/schema definitions
 - Important service or controller files
+- Representative test files (not all individual UI component tests)
+- Recent migration files to understand database changes
 
 ### 4. Understand Current State (if git repository)
 Check recent activity:
