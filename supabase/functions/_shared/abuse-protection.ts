@@ -1,279 +1,342 @@
-// Rate limiting and abuse protection utilities for Supabase Edge Functions
-import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// Shared abuse protection utilities for edge functions
+// Note: This module uses generic supabase client type to work with custom RPCs
+// deno-lint-ignore-file no-explicit-any
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-// CORS headers for all responses
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-};
-
-// Error codes for consistent error handling
-export const ErrorCodes = {
-  RATE_LIMITED: 'RATE_LIMITED',
-  INVALID_INPUT: 'INVALID_INPUT',
-  UNAUTHORIZED: 'UNAUTHORIZED',
-  INTERNAL_ERROR: 'INTERNAL_ERROR',
-  RESOURCE_NOT_FOUND: 'RESOURCE_NOT_FOUND',
-} as const;
-
-// Rate limiting configuration
+// ============================================
+// CONFIGURATION
+// ============================================
 export const RATE_LIMITS = {
   chat: {
-    authenticated: {
-      requests: 100, // requests per window
-      windowMinutes: 60, // 1 hour window
-    },
-    public: {
-      requests: 20, // requests per window
-      windowMinutes: 60, // 1 hour window
-    },
+    authenticated: { requests: 60, windowMinutes: 1 },
+    public: { requests: 10, windowMinutes: 1 },
   },
-  ingestion: {
-    authenticated: {
-      requests: 10, // requests per window
-      windowMinutes: 60, // 1 hour window
-    },
+  ingest: {
+    authenticated: { requests: 5, windowMinutes: 5 },
   },
-} as const;
+  pipeline: {
+    concurrent: 1, // Max concurrent pipeline runs per channel
+    ttlSeconds: 600, // 10 minute lock timeout
+  },
+};
 
-// In-memory rate limiting store (simple implementation)
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+export const COST_GUARDS = {
+  maxEmbeddingsPerRequest: 100,
+  maxChunksPerChannel: 5000,
+  maxVideosPerIngestion: 100,
+  maxTokensPerChat: 4000,
+};
 
-// Rate limiting check
+// ============================================
+// STRUCTURED LOGGING
+// ============================================
+export interface LogEntry {
+  timestamp: string;
+  function: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  userId?: string;
+  requestId?: string;
+  metadata?: Record<string, unknown>;
+  durationMs?: number;
+}
+
+export function createLogger(functionName: string, requestId?: string) {
+  const startTime = Date.now();
+  
+  const log = (level: LogEntry['level'], message: string, metadata?: Record<string, unknown>) => {
+    const entry: LogEntry = {
+      timestamp: new Date().toISOString(),
+      function: functionName,
+      level,
+      message,
+      requestId,
+      durationMs: Date.now() - startTime,
+      metadata,
+    };
+    
+    const logLine = JSON.stringify(entry);
+    
+    switch (level) {
+      case 'error':
+        console.error(logLine);
+        break;
+      case 'warn':
+        console.warn(logLine);
+        break;
+      default:
+        console.log(logLine);
+    }
+  };
+  
+  return {
+    debug: (msg: string, meta?: Record<string, unknown>) => log('debug', msg, meta),
+    info: (msg: string, meta?: Record<string, unknown>) => log('info', msg, meta),
+    warn: (msg: string, meta?: Record<string, unknown>) => log('warn', msg, meta),
+    error: (msg: string, meta?: Record<string, unknown>) => log('error', msg, meta),
+  };
+}
+
+// ============================================
+// REQUEST DEDUPLICATION
+// ============================================
+export function generateRequestHash(data: Record<string, unknown>): string {
+  const str = JSON.stringify(data, Object.keys(data).sort());
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16);
+}
+
+export async function checkDuplicateRequest(
+  supabase: any,
+  idempotencyKey: string,
+  userId: string | null,
+  operationType: string,
+  requestHash: string
+): Promise<{ isDuplicate: boolean; existingResponse?: unknown; existingStatus?: string }> {
+  try {
+    const { data, error } = await supabase.rpc('check_idempotency', {
+      p_idempotency_key: idempotencyKey,
+      p_user_id: userId,
+      p_operation_type: operationType,
+      p_request_hash: requestHash,
+    });
+    
+    if (error) {
+      console.error('Idempotency check error:', error);
+      return { isDuplicate: false };
+    }
+    
+    if (data && Array.isArray(data) && data.length > 0 && data[0].is_duplicate) {
+      return {
+        isDuplicate: true,
+        existingResponse: data[0].existing_response,
+        existingStatus: data[0].existing_status,
+      };
+    }
+    
+    return { isDuplicate: false };
+  } catch (err) {
+    console.error('Idempotency check exception:', err);
+    return { isDuplicate: false };
+  }
+}
+
+export async function completeRequest(
+  supabase: any,
+  idempotencyKey: string,
+  response: unknown,
+  status: string = 'completed'
+): Promise<void> {
+  try {
+    await supabase.rpc('complete_idempotency', {
+      p_idempotency_key: idempotencyKey,
+      p_response_data: response,
+      p_status: status,
+    });
+  } catch (err) {
+    console.error('Complete idempotency error:', err);
+  }
+}
+
+// ============================================
+// CONCURRENCY LOCKS
+// ============================================
+export async function acquireLock(
+  supabase: any,
+  lockKey: string,
+  userId: string | null,
+  operationType: string,
+  ttlSeconds: number = 300
+): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('acquire_operation_lock', {
+      p_lock_key: lockKey,
+      p_user_id: userId,
+      p_operation_type: operationType,
+      p_ttl_seconds: ttlSeconds,
+    });
+    
+    if (error) {
+      console.error('Lock acquisition error:', error);
+      return false;
+    }
+    
+    return data === true;
+  } catch (err) {
+    console.error('Lock acquisition exception:', err);
+    return false;
+  }
+}
+
+export async function releaseLock(
+  supabase: any,
+  lockKey: string
+): Promise<void> {
+  try {
+    await supabase.rpc('release_operation_lock', {
+      p_lock_key: lockKey,
+    });
+  } catch (err) {
+    console.error('Lock release error:', err);
+  }
+}
+
+// ============================================
+// ERROR LOGGING TO DATABASE
+// ============================================
+export async function logError(
+  supabase: any,
+  functionName: string,
+  error: Error | string,
+  userId?: string,
+  requestData?: Record<string, unknown>,
+  metadata?: Record<string, unknown>,
+  severity: 'info' | 'warn' | 'error' = 'error'
+): Promise<void> {
+  try {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    await supabase.rpc('log_error', {
+      p_function_name: functionName,
+      p_error_message: errorMessage,
+      p_error_code: null,
+      p_error_stack: errorStack || null,
+      p_user_id: userId || null,
+      p_request_data: requestData || null,
+      p_metadata: metadata || {},
+      p_severity: severity,
+    });
+  } catch (err) {
+    console.error('Error logging to database failed:', err);
+  }
+}
+
+// ============================================
+// RATE LIMITING (In-memory for edge, with DB fallback)
+// ============================================
+const rateLimitCache = new Map<string, { count: number; resetAt: number }>();
+
 export function checkRateLimit(
   key: string,
-  maxRequests: number,
+  limit: number,
   windowMinutes: number
 ): { allowed: boolean; remaining: number; resetAt: Date } {
   const now = Date.now();
   const windowMs = windowMinutes * 60 * 1000;
-  const resetAt = new Date(Math.ceil(now / windowMs) * windowMs);
   
-  const current = rateLimitStore.get(key);
+  const existing = rateLimitCache.get(key);
   
-  if (!current || current.resetAt <= now) {
-    // New window or expired window
-    rateLimitStore.set(key, { count: 1, resetAt: resetAt.getTime() });
-    return { allowed: true, remaining: maxRequests - 1, resetAt };
+  if (!existing || existing.resetAt <= now) {
+    // New window
+    rateLimitCache.set(key, { count: 1, resetAt: now + windowMs });
+    return { allowed: true, remaining: limit - 1, resetAt: new Date(now + windowMs) };
   }
   
-  if (current.count >= maxRequests) {
-    return { allowed: false, remaining: 0, resetAt };
+  if (existing.count >= limit) {
+    return { allowed: false, remaining: 0, resetAt: new Date(existing.resetAt) };
   }
   
-  // Increment count
-  current.count++;
-  rateLimitStore.set(key, current);
-  
-  return { allowed: true, remaining: maxRequests - current.count, resetAt };
+  existing.count++;
+  return { allowed: true, remaining: limit - existing.count, resetAt: new Date(existing.resetAt) };
 }
 
-// Simple lock mechanism for preventing concurrent operations
-const lockStore = new Map<string, { lockedAt: number; ttlMs: number; userId?: string; operation?: string }>();
-
-export async function acquireLock(
-  supabase: SupabaseClient,
-  key: string, 
-  userId?: string, 
-  operation?: string, 
-  ttlSeconds: number = 600
-): Promise<boolean> {
-  const now = Date.now();
-  const ttlMs = ttlSeconds * 1000;
-  const existing = lockStore.get(key);
-  
-  if (existing && (existing.lockedAt + existing.ttlMs) > now) {
-    return false; // Lock is still active
-  }
-  
-  lockStore.set(key, { lockedAt: now, ttlMs, userId, operation });
-  return true;
+// ============================================
+// STRUCTURED ERROR RESPONSES
+// ============================================
+export interface ErrorResponse {
+  error: string;
+  code: string;
+  details?: Record<string, unknown>;
+  retryable: boolean;
+  retryAfterMs?: number;
 }
 
-export async function releaseLock(supabase: SupabaseClient, key: string): Promise<void> {
-  lockStore.delete(key);
-}
-
-// Logger utility for structured logging
-export function createLogger(service: string, requestId: string) {
-  return {
-    info: (message: string, data?: unknown) => {
-      console.log(JSON.stringify({
-        level: 'info',
-        service,
-        requestId,
-        message,
-        data,
-        timestamp: new Date().toISOString(),
-      }));
-    },
-    warn: (message: string, data?: unknown) => {
-      console.warn(JSON.stringify({
-        level: 'warn',
-        service,
-        requestId,
-        message,
-        data,
-        timestamp: new Date().toISOString(),
-      }));
-    },
-    error: (message: string, data?: unknown) => {
-      console.error(JSON.stringify({
-        level: 'error',
-        service,
-        requestId,
-        message,
-        data,
-        timestamp: new Date().toISOString(),
-      }));
-    },
-  };
-}
-
-// Error logging to database
-export async function logError(
-  supabase: SupabaseClient,
-  service: string,
-  error: Error,
-  details?: unknown
-): Promise<void> {
-  try {
-    await supabase
-      .from('error_logs')
-      .insert({
-        service,
-        error_message: error.message,
-        error_details: {
-          stack: error.stack,
-          name: error.name,
-          ...details,
-        },
-      });
-  } catch (logError) {
-    console.error('Failed to log error to database:', logError);
-  }
-}
-
-// Create standardized error response
 export function createErrorResponse(
   message: string,
   code: string,
-  status: number = 400,
-  details?: unknown,
-  includeRetryAfter: boolean = false,
+  status: number,
+  details?: Record<string, unknown>,
+  retryable: boolean = false,
   retryAfterMs?: number
 ): Response {
-  const headers = { ...corsHeaders, 'Content-Type': 'application/json' };
+  const body: ErrorResponse = {
+    error: message,
+    code,
+    details,
+    retryable,
+    retryAfterMs,
+  };
   
-  if (includeRetryAfter && retryAfterMs) {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+  
+  if (retryAfterMs) {
     headers['Retry-After'] = Math.ceil(retryAfterMs / 1000).toString();
   }
   
-  return new Response(
-    JSON.stringify({
-      error: message,
-      code,
-      details,
-      timestamp: new Date().toISOString(),
-    }),
-    { status, headers }
-  );
+  return new Response(JSON.stringify(body), { status, headers });
 }
 
-// Input validation utilities
-export function validateRequired(obj: unknown, fields: string[]): string | null {
-  for (const field of fields) {
-    if (!obj[field] || (typeof obj[field] === 'string' && obj[field].trim() === '')) {
-      return `Missing required field: ${field}`;
-    }
-  }
-  return null;
-}
+// Common error responses
+export const ErrorCodes = {
+  RATE_LIMITED: 'RATE_LIMITED',
+  DUPLICATE_REQUEST: 'DUPLICATE_REQUEST',
+  CONCURRENT_OPERATION: 'CONCURRENT_OPERATION',
+  COST_LIMIT_EXCEEDED: 'COST_LIMIT_EXCEEDED',
+  INVALID_REQUEST: 'INVALID_REQUEST',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  NOT_FOUND: 'NOT_FOUND',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  LIMIT_EXCEEDED: 'LIMIT_EXCEEDED',
+} as const;
 
-export function validateStringLength(
-  value: string,
-  fieldName: string,
-  minLength: number = 1,
-  maxLength: number = 1000
-): string | null {
-  if (value.length < minLength) {
-    return `${fieldName} must be at least ${minLength} characters`;
-  }
-  if (value.length > maxLength) {
-    return `${fieldName} must be no more than ${maxLength} characters`;
-  }
-  return null;
-}
-
-// Clean up expired entries periodically (simple cleanup)
-setInterval(() => {
-  const now = Date.now();
-  
-  // Clean up rate limit store
-  for (const [key, value] of rateLimitStore.entries()) {
-    if (value.resetAt <= now) {
-      rateLimitStore.delete(key);
-    }
-  }
-  
-  // Clean up lock store
-  for (const [key, value] of lockStore.entries()) {
-    if ((value.lockedAt + value.ttlMs) <= now) {
-      lockStore.delete(key);
-    }
-  }
-}, 5 * 60 * 1000); // Clean up every 5 minutes
-
-// Request deduplication utilities
-const requestStore = new Map<string, { 
-  status: 'pending' | 'completed' | 'failed';
-  response?: unknown;
-  createdAt: number;
-}>();
-
-export async function checkDuplicateRequest(
-  supabase: SupabaseClient,
-  idempotencyKey: string,
-  _userId?: string,
-  _operation?: string,
-  _requestHash?: string
-): Promise<{
-  isDuplicate: boolean;
-  existingStatus?: string;
-  existingResponse?: unknown;
-}> {
-  const existing = requestStore.get(idempotencyKey);
-  
-  if (!existing) {
-    // Mark as pending
-    requestStore.set(idempotencyKey, {
-      status: 'pending',
-      createdAt: Date.now(),
-    });
-    return { isDuplicate: false };
-  }
+// ============================================
+// REQUEST VALIDATION
+// ============================================
+export function validateRequest(
+  body: Record<string, unknown>,
+  requiredFields: string[]
+): { valid: boolean; missingFields: string[] } {
+  const missingFields = requiredFields.filter(field => {
+    const value = body[field];
+    return value === undefined || value === null || value === '';
+  });
   
   return {
-    isDuplicate: true,
-    existingStatus: existing.status,
-    existingResponse: existing.response,
+    valid: missingFields.length === 0,
+    missingFields,
   };
 }
 
-export async function completeRequest(
-  supabase: SupabaseClient,
-  idempotencyKey: string,
-  response: unknown,
-  status: 'completed' | 'failed'
-): Promise<void> {
-  requestStore.set(idempotencyKey, {
-    status,
-    response,
-    createdAt: Date.now(),
-  });
+// ============================================
+// SAFE OPERATION WRAPPER
+// ============================================
+export async function safeOperation<T>(
+  operation: () => Promise<T>,
+  fallback: T,
+  errorContext?: string
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (err) {
+    console.error(`Safe operation failed${errorContext ? ` (${errorContext})` : ''}:`, err);
+    return fallback;
+  }
 }
 
-export function generateRequestHash(data: unknown): string {
-  return JSON.stringify(data);
-}
+// ============================================
+// CORS HEADERS
+// ============================================
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-idempotency-key',
+};

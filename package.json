@@ -8,7 +8,13 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest --config vitest.config.ts"
+    "test": "vitest --config vitest.config.ts",
+    "test:edge-functions": "vitest --config vitest.edge-functions.config.ts",
+    "test:unit": "vitest --config vitest.edge-functions.config.ts tests/edge-functions",
+    "test:integration": "vitest --config vitest.edge-functions.config.ts tests/integration",
+    "test:coverage": "vitest --config vitest.edge-functions.config.ts --coverage",
+    "test:watch": "vitest --config vitest.edge-functions.config.ts --watch",
+    "test:ci": "vitest --config vitest.edge-functions.config.ts --run --coverage"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.11",

@@ -4,8 +4,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import {
   createLogger,
   checkRateLimit,
-  acquireLock,
-  releaseLock,
   logError,
   createErrorResponse,
   ErrorCodes,
@@ -125,6 +123,14 @@ interface LLMMessage {
   content: string;
 }
 
+interface Citation {
+  video_id: string;
+  title: string;
+  start_time: number | null;
+  end_time: number | null;
+  thumbnail_url: string | null;
+}
+
 type QuestionType = 'general' | 'conceptual' | 'moment' | 'clarification' | 'followUp';
 
 const MAX_CITATIONS = 4;
@@ -149,7 +155,6 @@ function shouldShowCitations(questionType: QuestionType, query: string): boolean
 // QUESTION TYPE CLASSIFICATION
 // ============================================
 function classifyQuestion(query: string, hasHistory: boolean): QuestionType {
-  const q = query.toLowerCase().trim();
   
   // Moment-based: asking for specific location/timestamp
   const momentPatterns = [
@@ -640,7 +645,7 @@ async function generateResponse(
   questionType: QuestionType,
   creatorName: string,
   confidenceLevel: 'high' | 'medium' | 'low'
-): Promise<{ answer: string; citations: any[]; showCitations: boolean }> {
+): Promise<{ answer: string; citations: Citation[]; showCitations: boolean }> {
   console.log(`Generating response: ${chunks.length} chunks, type=${questionType}, creator=${creatorName}, confidence=${confidenceLevel}`);
   
   const hasTimestamps = chunks.some(c => hasValidTimestamps(c));
@@ -695,7 +700,7 @@ ${historyBlock}`;
   }
   
   // Build citations - limit to MAX_CITATIONS
-  const citationMap = new Map<string, any>();
+  const citationMap = new Map<string, Citation>();
   const sortedChunks = [...chunks].sort((a, b) => b.similarity - a.similarity);
   
   for (const chunk of sortedChunks) {

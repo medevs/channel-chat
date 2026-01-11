@@ -2,16 +2,6 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 
-/**
- * LAYER 2: Chunking & Embeddings Pipeline
- * 
- * Purpose: Process transcripts that were successfully extracted in Layer 1.
- * Creates semantic chunks with timestamps and generates embeddings for RAG.
- * 
- * Prerequisites: Layer 1 (extract-transcripts) must have run first.
- * Only processes videos with extraction_status = 'completed'.
- */
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -23,81 +13,148 @@ const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const TARGET_CHUNK_TOKENS = 400;
-const OVERLAP_TOKENS = 75;
+const TARGET_CHUNK_TOKENS = 400; // tokens (approx 300-500 as per best practice)
+const OVERLAP_TOKENS = 75; // tokens overlap
 
 interface TranscriptSegment {
   text: string;
-  start: number;
-  end: number;
+  start: number;  // seconds
+  end: number;    // seconds
 }
 
 interface TranscriptChunk {
   text: string;
-  startTime: number;
-  endTime: number;
+  startTime: number | null;
+  endTime: number | null;
   tokenCount: number;
+  hasValidTimestamps: boolean;
 }
 
+// Simple tokenizer approximation (1 token ≈ 4 characters for English)
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-/**
- * Chunk transcript using segment-level timestamps
- */
+// Chunk transcript using SEGMENT-LEVEL timestamps for precision
 function chunkTranscriptWithSegments(segments: TranscriptSegment[]): TranscriptChunk[] {
   const chunks: TranscriptChunk[] = [];
   
   if (!segments || segments.length === 0) {
+    console.log('No segments provided for chunking');
     return chunks;
   }
   
+  // Check if we have valid timestamps (partial transcripts have start=0, end=0)
+  const hasValidTimestamps = segments.some(seg => seg.end > seg.start);
+  console.log(`Chunking ${segments.length} segments, hasValidTimestamps: ${hasValidTimestamps}`);
+  
+  if (!hasValidTimestamps) {
+    // Fall back to simple text chunking without timestamps
+    const fullText = segments.map(s => s.text).join(' ');
+    return chunkTextWithoutTimestamps(fullText);
+  }
+  
+  // Accumulate segments into chunks based on token count
   let currentChunkSegments: TranscriptSegment[] = [];
   let currentTokenCount = 0;
+  
+  const targetTokens = TARGET_CHUNK_TOKENS;
   
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
     const segmentTokens = estimateTokens(segment.text);
     
-    if (currentTokenCount + segmentTokens > TARGET_CHUNK_TOKENS && currentChunkSegments.length > 0) {
-      chunks.push(createChunkFromSegments(currentChunkSegments));
+    // If adding this segment would exceed target, finalize current chunk
+    if (currentTokenCount + segmentTokens > targetTokens && currentChunkSegments.length > 0) {
+      chunks.push(createChunkFromSegments(currentChunkSegments, true));
       
-      // Overlap
+      // Overlap: keep last few segments for context
+      const overlapTokens = OVERLAP_TOKENS;
+      let overlapCount = 0;
       const overlapSegments: TranscriptSegment[] = [];
-      let overlapTokens = 0;
-      for (let j = currentChunkSegments.length - 1; j >= 0 && overlapTokens < OVERLAP_TOKENS; j--) {
-        overlapTokens += estimateTokens(currentChunkSegments[j].text);
-        overlapSegments.unshift(currentChunkSegments[j]);
+      
+      for (let j = currentChunkSegments.length - 1; j >= 0 && overlapCount < overlapTokens; j--) {
+        const seg = currentChunkSegments[j];
+        overlapCount += estimateTokens(seg.text);
+        overlapSegments.unshift(seg);
       }
       
       currentChunkSegments = overlapSegments;
-      currentTokenCount = overlapTokens;
+      currentTokenCount = overlapCount;
     }
     
     currentChunkSegments.push(segment);
     currentTokenCount += segmentTokens;
   }
   
+  // Don't forget the last chunk
   if (currentChunkSegments.length > 0) {
-    chunks.push(createChunkFromSegments(currentChunkSegments));
+    chunks.push(createChunkFromSegments(currentChunkSegments, true));
+  }
+  
+  console.log(`Created ${chunks.length} chunks with timestamps`);
+  if (chunks.length > 0) {
+    console.log(`First chunk: ${chunks[0].startTime}s - ${chunks[0].endTime}s (${chunks[0].tokenCount} tokens)`);
+    console.log(`Last chunk: ${chunks[chunks.length-1].startTime}s - ${chunks[chunks.length-1].endTime}s`);
   }
   
   return chunks;
 }
 
-function createChunkFromSegments(segments: TranscriptSegment[]): TranscriptChunk {
+function createChunkFromSegments(segments: TranscriptSegment[], hasTimestamps: boolean): TranscriptChunk {
   const text = segments.map(s => s.text).join(' ').trim();
+  
+  // Get timestamps from first and last segment
+  const startTime = segments[0]?.start ?? null;
+  const endTime = segments[segments.length - 1]?.end ?? null;
+  
   return {
     text,
-    startTime: segments[0].start,
-    endTime: segments[segments.length - 1].end,
+    startTime: hasTimestamps ? startTime : null,
+    endTime: hasTimestamps ? endTime : null,
     tokenCount: estimateTokens(text),
+    hasValidTimestamps: hasTimestamps && startTime !== null && endTime !== null && endTime > startTime,
   };
 }
 
+// Fallback for transcripts without timestamp data
+function chunkTextWithoutTimestamps(text: string): TranscriptChunk[] {
+  console.log('Chunking text WITHOUT timestamps (partial transcript)');
+  
+  const chunks: TranscriptChunk[] = [];
+  const words = text.split(/\s+/);
+  const totalWords = words.length;
+  
+  if (totalWords === 0) return chunks;
+  
+  const wordsPerChunk = Math.ceil(TARGET_CHUNK_TOKENS * 4 / 5); // Approximate words per chunk
+  const overlapWords = Math.ceil(OVERLAP_TOKENS * 4 / 5);
+  
+  let currentStart = 0;
+  
+  while (currentStart < totalWords) {
+    const chunkWords = words.slice(currentStart, currentStart + wordsPerChunk);
+    const chunkText = chunkWords.join(' ');
+    
+    chunks.push({
+      text: chunkText,
+      startTime: null,  // NO timestamps for partial transcripts
+      endTime: null,
+      tokenCount: estimateTokens(chunkText),
+      hasValidTimestamps: false,
+    });
+    
+    currentStart += wordsPerChunk - overlapWords;
+    if (currentStart <= 0) currentStart = wordsPerChunk;
+  }
+  
+  console.log(`Created ${chunks.length} chunks WITHOUT timestamps`);
+  return chunks;
+}
+
+// Generate embeddings using OpenAI
 async function generateEmbeddings(texts: string[]): Promise<number[][]> {
-  console.log(`[Embeddings] Generating for ${texts.length} chunks`);
+  console.log(`Generating embeddings for ${texts.length} chunks`);
   
   const response = await fetch('https://api.openai.com/v1/embeddings', {
     method: 'POST',
@@ -113,162 +170,124 @@ async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`OpenAI error: ${error}`);
+    console.error(`OpenAI embeddings error: ${error}`);
+    throw new Error(`OpenAI API error: ${error}`);
   }
   
   const data = await response.json();
   return data.data.map((item: { embedding: number[] }) => item.embedding);
 }
 
-async function updateProgress(channelId: string, progress: number, status?: string) {
-  const update: Record<string, any> = { ingestion_progress: progress };
-  if (status) update.ingestion_status = status;
-  
-  await supabase.from('channels').update(update).eq('channel_id', channelId);
-  console.log(`[Progress] ${channelId}: ${progress}%${status ? ` (${status})` : ''}`);
-}
-
-/**
- * Process a single video: chunk and embed an already-extracted transcript
- */
-async function processVideoChunking(
-  videoId: string, 
-  channelId: string,
-  transcriptId: string,
-  segments: TranscriptSegment[]
-): Promise<{
+// Process transcript chunks and generate embeddings
+async function processTranscript(transcriptId: string): Promise<{
   success: boolean;
   chunksCreated: number;
+  chunksWithTimestamps: number;
   error?: string;
 }> {
-  console.log(`\n========== Chunking: ${videoId} ==========`);
+  console.log(`Processing transcript: ${transcriptId}`);
   
-  try {
-    // Check if already has valid chunks
-    const { data: existingChunks } = await supabase
-      .from('transcript_chunks')
-      .select('id')
-      .eq('video_id', videoId)
-      .eq('embedding_status', 'completed')
-      .limit(1);
-    
-    if (existingChunks && existingChunks.length > 0) {
-      console.log(`[Skip] Already has chunks`);
-      return { success: true, chunksCreated: 0 };
-    }
-    
-    // Create chunks
-    const chunks = chunkTranscriptWithSegments(segments);
-    
-    if (chunks.length === 0) {
-      console.log(`[Skip] No chunks created from ${segments.length} segments`);
-      return { success: true, chunksCreated: 0 };
-    }
-    
-    console.log(`[Chunking] Created ${chunks.length} chunks`);
-    
-    // Generate embeddings in batches
-    const BATCH_SIZE = 50;
-    let allEmbeddings: number[][] = [];
-    
-    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-      const batch = chunks.slice(i, i + BATCH_SIZE);
-      const texts = batch.map(c => c.text);
-      const embeddings = await generateEmbeddings(texts);
-      allEmbeddings = [...allEmbeddings, ...embeddings];
-    }
-    
-    // Delete old chunks for this video (if re-processing)
-    await supabase.from('transcript_chunks').delete().eq('video_id', videoId);
-    
-    // Insert chunks with embeddings
-    const chunkRecords = chunks.map((chunk, idx) => ({
-      transcript_id: transcriptId,
-      video_id: videoId,
-      channel_id: channelId,
-      chunk_index: idx,
-      text: chunk.text,
-      start_time: chunk.startTime,
-      end_time: chunk.endTime,
-      token_count: chunk.tokenCount,
-      embedding: `[${allEmbeddings[idx].join(',')}]`,
-      embedding_status: 'completed',
-    }));
-    
-    const { error: chunksError } = await supabase
-      .from('transcript_chunks')
-      .insert(chunkRecords);
-    
-    if (chunksError) {
-      console.error(`[Error] Chunk insert failed:`, chunksError);
-      return { success: false, chunksCreated: 0, error: chunksError.message };
-    }
-    
-    console.log(`[Success] Created ${chunks.length} chunks with embeddings`);
-    return { success: true, chunksCreated: chunks.length };
-    
-  } catch (error) {
-    console.error(`[Error] Chunking ${videoId}:`, error);
-    return { success: false, chunksCreated: 0, error: String(error) };
-  }
-}
-
-/**
- * Validate pipeline results
- */
-async function validatePipelineResults(channelId: string): Promise<{
-  isValid: boolean;
-  transcriptCount: number;
-  withCaptionsCount: number;
-  chunkCount: number;
-  embeddingCount: number;
-  issues: string[];
-}> {
-  const issues: string[] = [];
-  
-  // Count transcripts with captions
-  const { count: withCaptionsCount } = await supabase
+  // Get transcript WITH SEGMENTS
+  const { data: transcript, error: fetchError } = await supabase
     .from('transcripts')
-    .select('*', { count: 'exact', head: true })
-    .eq('channel_id', channelId)
-    .eq('extraction_status', 'completed')
-    .not('full_text', 'is', null);
+    .select('*')
+    .eq('id', transcriptId)
+    .single();
   
-  // Count chunks
-  const { count: chunkCount } = await supabase
+  if (fetchError || !transcript) {
+    return { success: false, chunksCreated: 0, chunksWithTimestamps: 0, error: 'Transcript not found' };
+  }
+  
+  // Parse segments from JSONB column
+  let segments: TranscriptSegment[] = [];
+  
+  if (transcript.segments && Array.isArray(transcript.segments)) {
+    segments = transcript.segments as TranscriptSegment[];
+    console.log(`Loaded ${segments.length} segments from transcript`);
+  } else if (transcript.full_text && transcript.full_text.trim().length > 0) {
+    // Fallback if no segments stored - create single segment without timestamps
+    console.log('No segments found, falling back to full_text chunking');
+    segments = [{
+      text: transcript.full_text,
+      start: 0,
+      end: 0, // Invalid - signals no timestamp
+    }];
+  } else {
+    return { success: false, chunksCreated: 0, chunksWithTimestamps: 0, error: 'Transcript has no text or segments' };
+  }
+  
+  // Delete existing chunks for this transcript
+  await supabase
     .from('transcript_chunks')
-    .select('*', { count: 'exact', head: true })
-    .eq('channel_id', channelId);
+    .delete()
+    .eq('transcript_id', transcriptId);
   
-  // Count chunks with embeddings
-  const { count: embeddingCount } = await supabase
-    .from('transcript_chunks')
-    .select('*', { count: 'exact', head: true })
-    .eq('channel_id', channelId)
-    .eq('embedding_status', 'completed')
-    .not('embedding', 'is', null);
+  // Create chunks using segment-level timestamps
+  const chunks = chunkTranscriptWithSegments(segments);
+  console.log(`Created ${chunks.length} chunks for transcript ${transcriptId}`);
   
-  // Validate
-  if ((withCaptionsCount || 0) === 0) {
-    issues.push('No videos with captions found');
+  if (chunks.length === 0) {
+    return { success: false, chunksCreated: 0, chunksWithTimestamps: 0, error: 'No chunks created' };
   }
   
-  if ((chunkCount || 0) === 0 && (withCaptionsCount || 0) > 0) {
-    issues.push('Transcripts found but no chunks created');
+  // Generate embeddings in batches (OpenAI limit is 2048 per request)
+  const batchSize = 100;
+  const allChunksWithEmbeddings: Array<{
+    chunk: TranscriptChunk;
+    embedding: number[];
+    index: number;
+  }> = [];
+  
+  for (let i = 0; i < chunks.length; i += batchSize) {
+    const batch = chunks.slice(i, i + batchSize);
+    const texts = batch.map(c => c.text);
+    
+    try {
+      const embeddings = await generateEmbeddings(texts);
+      
+      for (let j = 0; j < batch.length; j++) {
+        allChunksWithEmbeddings.push({
+          chunk: batch[j],
+          embedding: embeddings[j],
+          index: i + j,
+        });
+      }
+    } catch (error) {
+      console.error(`Error generating embeddings for batch starting at ${i}: ${error}`);
+      // Continue with other batches
+    }
   }
   
-  if ((embeddingCount || 0) < (chunkCount || 0)) {
-    issues.push(`Some chunks missing embeddings (${embeddingCount}/${chunkCount})`);
+  // Insert chunks with embeddings - PRESERVE TIMESTAMPS
+  const chunksToInsert = allChunksWithEmbeddings.map(({ chunk, embedding, index }) => ({
+    transcript_id: transcriptId,
+    video_id: transcript.video_id,
+    channel_id: transcript.channel_id,
+    chunk_index: index,
+    text: chunk.text,
+    start_time: chunk.hasValidTimestamps ? chunk.startTime : null,
+    end_time: chunk.hasValidTimestamps ? chunk.endTime : null,
+    token_count: chunk.tokenCount,
+    embedding: JSON.stringify(embedding),
+    embedding_status: 'completed',
+  }));
+  
+  if (chunksToInsert.length > 0) {
+    const { error: insertError } = await supabase
+      .from('transcript_chunks')
+      .insert(chunksToInsert);
+    
+    if (insertError) {
+      console.error(`Error inserting chunks: ${insertError.message}`);
+      return { success: false, chunksCreated: 0, chunksWithTimestamps: 0, error: insertError.message };
+    }
   }
   
-  return {
-    isValid: (chunkCount || 0) > 0 && (embeddingCount || 0) > 0,
-    transcriptCount: 0, // Not needed anymore
-    withCaptionsCount: withCaptionsCount || 0,
-    chunkCount: chunkCount || 0,
-    embeddingCount: embeddingCount || 0,
-    issues,
-  };
+  const chunksWithTimestamps = allChunksWithEmbeddings.filter(c => c.chunk.hasValidTimestamps).length;
+  
+  console.log(`Successfully created ${chunksToInsert.length} chunks (${chunksWithTimestamps} with timestamps)`);
+  
+  return { success: true, chunksCreated: chunksToInsert.length, chunksWithTimestamps };
 }
 
 serve(async (req) => {
@@ -277,146 +296,85 @@ serve(async (req) => {
   }
   
   try {
-    const body = await req.json();
-    const channelId = body.channelId || body.channel_id;
+    const { channel_id, transcript_ids, process_all } = await req.json();
     
-    if (!channelId) {
-      return new Response(JSON.stringify({ error: 'channelId is required' }), {
+    console.log(`Generate embeddings request - channel: ${channel_id}, transcripts: ${transcript_ids?.length || 'all'}`);
+    
+    let transcriptsToProcess: string[] = [];
+    
+    if (transcript_ids && transcript_ids.length > 0) {
+      transcriptsToProcess = transcript_ids;
+    } else if (process_all && channel_id) {
+      // Get all completed transcripts without embeddings
+      const { data: transcripts } = await supabase
+        .from('transcripts')
+        .select('id')
+        .eq('channel_id', channel_id)
+        .eq('extraction_status', 'completed');
+      
+      if (transcripts) {
+        // Check which ones don't have chunks yet
+        const { data: existingChunks } = await supabase
+          .from('transcript_chunks')
+          .select('transcript_id')
+          .eq('channel_id', channel_id)
+          .eq('embedding_status', 'completed');
+        
+        const existingIds = new Set(existingChunks?.map(c => c.transcript_id) || []);
+        transcriptsToProcess = transcripts
+          .filter(t => !existingIds.has(t.id))
+          .map(t => t.id);
+      }
+    } else {
+      return new Response(JSON.stringify({ error: 'Missing channel_id or transcript_ids' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
-    console.log(`\n==========================================`);
-    console.log(`LAYER 2: Chunking & Embeddings`);
-    console.log(`Channel: ${channelId}`);
-    console.log(`==========================================\n`);
+    console.log(`Processing ${transcriptsToProcess.length} transcripts`);
     
-    // Get transcripts that are ready for chunking (completed extraction)
-    const { data: transcripts, error: transcriptsError } = await supabase
-      .from('transcripts')
-      .select('id, video_id, segments')
-      .eq('channel_id', channelId)
-      .eq('extraction_status', 'completed')
-      .not('segments', 'eq', '[]');
+    const results = {
+      processed: 0,
+      chunksCreated: 0,
+      chunksWithTimestamps: 0,
+      failed: 0,
+      errors: [] as string[],
+    };
     
-    if (transcriptsError) {
-      throw new Error(`Failed to fetch transcripts: ${transcriptsError.message}`);
-    }
-    
-    if (!transcripts || transcripts.length === 0) {
-      console.log(`No transcripts ready for chunking`);
-      
-      // Check why - are there no transcripts at all, or just none completed?
-      const { count: totalCount } = await supabase
-        .from('transcripts')
-        .select('*', { count: 'exact', head: true })
-        .eq('channel_id', channelId);
-      
-      const { count: noCaptionsCount } = await supabase
-        .from('transcripts')
-        .select('*', { count: 'exact', head: true })
-        .eq('channel_id', channelId)
-        .eq('extraction_status', 'no_captions');
-      
-      let errorMessage = 'No transcripts ready for processing.';
-      if (noCaptionsCount === totalCount) {
-        errorMessage = 'No captions available for any video in this channel.';
+    // Process transcripts one at a time to avoid rate limits
+    for (const transcriptId of transcriptsToProcess) {
+      try {
+        const result = await processTranscript(transcriptId);
+        if (result.success) {
+          results.processed++;
+          results.chunksCreated += result.chunksCreated;
+          results.chunksWithTimestamps += result.chunksWithTimestamps;
+        } else {
+          results.failed++;
+          if (result.error) results.errors.push(result.error);
+        }
+      } catch (error) {
+        console.error(`Error processing transcript ${transcriptId}: ${error}`);
+        results.failed++;
+        results.errors.push(String(error));
       }
       
-      await supabase.from('channels').update({
-        ingestion_status: 'no_captions',
-        ingestion_progress: 100,
-        indexed_videos: 0,
-        error_message: errorMessage,
-      }).eq('channel_id', channelId);
-      
-      return new Response(JSON.stringify({
-        success: false,
-        status: 'no_captions',
-        errorMessage,
-        stats: { totalVideos: totalCount || 0, withCaptions: 0, chunks: 0 },
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      // Small delay to respect rate limits
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    console.log(`Found ${transcripts.length} transcripts to chunk\n`);
-    
-    await updateProgress(channelId, 0, 'processing');
-    
-    // Process transcripts
-    let successCount = 0;
-    let totalChunks = 0;
-    const errors: string[] = [];
-    
-    for (let i = 0; i < transcripts.length; i++) {
-      const transcript = transcripts[i];
-      const progress = Math.round(((i + 1) / transcripts.length) * 100);
-      
-      console.log(`\n[${i + 1}/${transcripts.length}] Video: ${transcript.video_id}`);
-      
-      const result = await processVideoChunking(
-        transcript.video_id,
-        channelId,
-        transcript.id,
-        transcript.segments as TranscriptSegment[]
-      );
-      
-      if (result.success) {
-        successCount++;
-        totalChunks += result.chunksCreated;
-      } else if (result.error) {
-        errors.push(`${transcript.video_id}: ${result.error}`);
-      }
-      
-      await updateProgress(channelId, progress);
-      
-      // Small delay between videos
-      if (i < transcripts.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-    }
-    
-    // Validate results
-    const validation = await validatePipelineResults(channelId);
-    
-    // Determine final status
-    const hasContent = validation.chunkCount > 0 && validation.embeddingCount > 0;
-    const finalStatus = hasContent ? 'completed' : 'failed';
-    const errorMessage = hasContent ? null : validation.issues.join('; ');
-    
-    // Update channel status
-    await supabase.from('channels').update({
-      ingestion_status: finalStatus,
-      ingestion_progress: 100,
-      indexed_videos: validation.withCaptionsCount,
-      error_message: errorMessage,
-      last_indexed_at: new Date().toISOString(),
-    }).eq('channel_id', channelId);
-    
-    console.log(`\n==========================================`);
-    console.log(`Layer 2 Complete: ${finalStatus}`);
-    console.log(`Transcripts: ${transcripts.length}, Chunks: ${validation.chunkCount}`);
-    console.log(`==========================================\n`);
+    console.log(`Embedding generation complete: ${JSON.stringify(results)}`);
     
     return new Response(JSON.stringify({
-      success: hasContent,
-      status: finalStatus,
-      stats: {
-        transcriptsProcessed: successCount,
-        withCaptions: validation.withCaptionsCount,
-        chunks: validation.chunkCount,
-        embeddings: validation.embeddingCount,
-      },
-      issues: validation.issues,
-      errors: errors.slice(0, 5),
+      success: true,
+      results,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
     
   } catch (error) {
-    console.error('Pipeline error:', error);
+    console.error('Generate embeddings error:', error);
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

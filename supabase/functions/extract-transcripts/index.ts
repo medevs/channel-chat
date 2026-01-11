@@ -33,6 +33,12 @@ interface TranscriptSegment {
   end: number;   // seconds
 }
 
+interface TranscriptAPIItem {
+  text: string;
+  start: number | string;
+  duration: number | string;
+}
+
 interface ExtractionResult {
   status: 'completed' | 'no_captions' | 'failed';
   segments: TranscriptSegment[];
@@ -132,7 +138,7 @@ async function fetchTranscript(videoId: string): Promise<ExtractionResult> {
     
     // Convert to our segment format
     // API returns: { text, start (seconds), duration (seconds) }
-    const segments: TranscriptSegment[] = transcriptItems.map((item: any) => {
+    const segments: TranscriptSegment[] = transcriptItems.map((item: TranscriptAPIItem) => {
       const start = typeof item.start === 'number' ? item.start : parseFloat(item.start) || 0;
       const duration = typeof item.duration === 'number' ? item.duration : parseFloat(item.duration) || 2;
       return {
@@ -237,7 +243,7 @@ async function processVideoTranscript(
  * Update channel progress
  */
 async function updateChannelProgress(channelId: string, progress: number, status?: string, errorMessage?: string) {
-  const update: Record<string, any> = { ingestion_progress: progress };
+  const update: Record<string, string | number | null> = { ingestion_progress: progress };
   if (status) update.ingestion_status = status;
   if (errorMessage !== undefined) update.error_message = errorMessage;
   

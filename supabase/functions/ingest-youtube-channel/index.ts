@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   createLogger,
   checkRateLimit,
@@ -72,6 +72,32 @@ interface ContentTypeOptions {
   lives: boolean;
 }
 
+interface ExistingChannel {
+  id: string;
+  channel_id: string;
+  channel_name: string;
+  avatar_url: string;
+  subscriber_count: string;
+  uploads_playlist_id: string;
+  last_indexed_at: string | null;
+  ingestion_status: string;
+  ingestion_progress: number;
+  video_count: number;
+}
+
+interface ChannelUpsertData {
+  channel_id: string;
+  channel_name: string;
+  avatar_url: string;
+  subscriber_count: string;
+  uploads_playlist_id: string;
+  ingestion_status: string;
+  ingestion_progress: number;
+  last_indexed_at?: string;
+  error_message?: string | null;
+  video_count?: number;
+}
+
 // Detect content type based on YouTube API metadata
 function getVideoContentType(video: VideoMetadata): 'video' | 'short' | 'live' {
   // Check if it's a livestream - YouTube API provides liveStreamingDetails ONLY for livestreams
@@ -131,7 +157,7 @@ function sortVideosByImportMode(videos: VideoMetadata[], mode: VideoImportMode):
 }
 
 // Get user's usage and plan
-async function getUserUsage(supabase: any, userId: string): Promise<{
+async function getUserUsage(supabase: SupabaseClient, userId: string): Promise<{
   plan_type: string;
   creators_added: number;
   videos_indexed: number;
@@ -152,7 +178,7 @@ async function getUserUsage(supabase: any, userId: string): Promise<{
 }
 
 // Check if user can add another creator (counts actual user_creators links)
-async function checkCreatorLimit(supabase: any, userId: string): Promise<{ 
+async function checkCreatorLimit(supabase: SupabaseClient, userId: string): Promise<{ 
   allowed: boolean; 
   current: number; 
   limit: number;
@@ -178,7 +204,7 @@ async function checkCreatorLimit(supabase: any, userId: string): Promise<{
 }
 
 // Check if user already has this channel linked
-async function checkUserHasChannel(supabase: any, userId: string, channelUuid: string): Promise<boolean> {
+async function checkUserHasChannel(supabase: SupabaseClient, userId: string, channelUuid: string): Promise<boolean> {
   const { data } = await supabase
     .from('user_creators')
     .select('id')
@@ -190,7 +216,7 @@ async function checkUserHasChannel(supabase: any, userId: string, channelUuid: s
 }
 
 // Link user to a channel
-async function linkUserToChannel(supabase: any, userId: string, channelUuid: string): Promise<{ success: boolean; error?: string }> {
+async function linkUserToChannel(supabase: SupabaseClient, userId: string, channelUuid: string): Promise<{ success: boolean; error?: string }> {
   const { error } = await supabase
     .from('user_creators')
     .insert({
@@ -209,7 +235,7 @@ async function linkUserToChannel(supabase: any, userId: string, channelUuid: str
 }
 
 // Increment usage counts after successful indexing
-async function incrementUsageCounts(supabase: any, userId: string, videosCount: number, isNewCreator: boolean): Promise<void> {
+async function incrementUsageCounts(supabase: SupabaseClient, userId: string, videosCount: number, isNewCreator: boolean): Promise<void> {
   if (isNewCreator) {
     const { error: creatorError } = await supabase.rpc('increment_creator_count', {
       p_user_id: userId,
@@ -468,18 +494,18 @@ function getEffectiveVideoLimit(
 }
 
 // Get existing indexed video IDs for a channel
-async function getExistingVideoIds(supabase: any, channelId: string): Promise<Set<string>> {
+async function getExistingVideoIds(supabase: SupabaseClient, channelId: string): Promise<Set<string>> {
   const { data, error } = await supabase
     .from('videos')
     .select('video_id')
     .eq('channel_id', channelId);
   
   if (error || !data) return new Set();
-  return new Set(data.map((v: any) => v.video_id));
+  return new Set(data.map((v: { video_id: string }) => v.video_id));
 }
 
 serve(async (req) => {
-  const requestId = crypto.randomUUID();
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const logger = createLogger('ingest-youtube-channel', requestId);
   let lockKey: string | null = null;
   
@@ -600,7 +626,7 @@ serve(async (req) => {
     });
 
     let channelInfo: ChannelInfo | null = null;
-    let existingChannel: any = null;
+    let existingChannel: ExistingChannel | null = null;
     let videos: VideoMetadata[] = [];
     let ingestionMethod: 'youtube_api' | 'fallback' = 'youtube_api';
     let lastIndexedAt: string | null = null;
@@ -1000,7 +1026,7 @@ serve(async (req) => {
     }
 
     // Upsert channel info
-    const channelUpsertData: any = {
+    const channelUpsertData: ChannelUpsertData = {
       channel_id: channelInfo.channel_id,
       channel_name: channelInfo.channel_name,
       channel_url: channelUrl || existingChannel?.channel_url,
