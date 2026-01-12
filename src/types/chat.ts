@@ -53,6 +53,7 @@ export interface ChatMessage {
     videosReferenced: number;
   };
   isRefusal?: boolean;
+  isTyping?: boolean; // For typing indicator
   debug?: {
     chunksFound?: number;
     videosReferenced?: number;

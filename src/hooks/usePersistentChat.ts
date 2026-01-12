@@ -116,11 +116,7 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
         content: msg.content,
         sources: (msg.sources as VideoSource[]) || [],
         timestamp: new Date(msg.created_at),
-        debug: msg.role === 'assistant' && DEBUG_MODE ? {
-          chunksFound: ((msg.sources as VideoSource[])?.length || 0),
-          videosReferenced: new Set((msg.sources as VideoSource[])?.map(s => s.videoId) || []).size,
-          isFromDatabase: true,
-        } : undefined,
+        // No debug info for loaded messages - only show for fresh responses
       }));
 
       setMessages(loadedMessages);
@@ -175,6 +171,9 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
 
     setIsLoading(true);
     setError(null);
+
+    // Force a render with typing indicator before adding user message
+    await new Promise(resolve => setTimeout(resolve, 0));
 
     // Build conversation history from current messages for context
     const conversationHistory: ConversationMessage[] = messages.slice(-10).map(m => ({
@@ -268,7 +267,7 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
         debug: DEBUG_MODE ? {
           chunksFound: response.debug?.chunksFound || response.evidence?.chunksUsed || 0,
           videosReferenced: response.debug?.videosReferenced || response.evidence?.videosReferenced || 0,
-          isFromDatabase: hasRealData,
+          isFromDatabase: (response.debug?.chunksFound || response.evidence?.chunksUsed || 0) > 0,
         } : undefined,
       };
 

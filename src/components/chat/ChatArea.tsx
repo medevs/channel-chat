@@ -495,17 +495,20 @@ export function ChatArea({
                 <div className="flex gap-2.5 md:gap-3 justify-start animate-fade-in">
                   <Avatar className="w-7 h-7 md:w-8 md:h-8 shrink-0 mt-0.5">
                     <AvatarImage src={activeCreator.avatarUrl || undefined} alt={activeCreator.name} />
-                    <AvatarFallback>{activeCreator.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-2xs">{activeCreator.name.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <div className="bg-chat-bubble-ai rounded-2xl rounded-bl-md px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      {[0, 1, 2].map((i) => (
-                        <span
-                          key={i}
-                          className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce"
-                          style={{ animationDelay: `${i * 150}ms` }}
-                        />
-                      ))}
+                  <div className="bg-chat-bubble-ai text-chat-bubble-ai-foreground rounded-2xl rounded-bl-md px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Thinking</span>
+                      <div className="flex items-center gap-1">
+                        {[0, 1, 2].map((i) => (
+                          <span
+                            key={i}
+                            className="w-1.5 h-1.5 bg-muted-foreground/60 rounded-full animate-bounce"
+                            style={{ animationDelay: `${i * 150}ms` }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
