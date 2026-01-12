@@ -199,7 +199,7 @@ export function ChatArea({
   ];
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div key={activeCreator.id} className="flex flex-col h-full bg-background">
       {/* Header */}
       <header className="flex items-center gap-3 pl-14 pr-4 py-3 md:pl-6 md:pr-6 md:py-4 border-b border-border shrink-0 bg-card/50">
         <Avatar className="w-10 h-10 md:w-11 md:h-11 shrink-0 ring-2 ring-primary/10">

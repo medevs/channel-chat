@@ -239,7 +239,13 @@ export function AppSidebar({
                         activeCreatorId === creator.id && 'ring-primary/30'
                       )}>
                         <AvatarImage src={creator.avatarUrl || undefined} alt={creator.name} />
-                        <AvatarFallback className="font-display text-xs">{creator.name.charAt(0)}</AvatarFallback>
+                        <AvatarFallback className="font-display text-xs">
+                          {creator.avatarUrl ? creator.name.charAt(0) : (
+                            creator.ingestionStatus === 'pending' || creator.ingestionStatus === 'processing' ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : creator.name.charAt(0)
+                          )}
+                        </AvatarFallback>
                       </Avatar>
                     </button>
                   </TooltipTrigger>
@@ -255,7 +261,13 @@ export function AppSidebar({
                       activeCreatorId === creator.id && 'ring-primary/30'
                     )}>
                       <AvatarImage src={creator.avatarUrl || undefined} alt={creator.name} />
-                      <AvatarFallback className="font-display text-xs">{creator.name.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="font-display text-xs">
+                        {creator.avatarUrl ? creator.name.charAt(0) : (
+                          creator.ingestionStatus === 'pending' || creator.ingestionStatus === 'processing' ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : creator.name.charAt(0)
+                        )}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -263,7 +275,14 @@ export function AppSidebar({
                         {getStatusBadge(creator)}
                       </div>
                       <p className="text-2xs text-muted-foreground truncate">
-                        {formatSubscribers(creator.subscribers)}
+                        {creator.subscribers ? formatSubscribers(creator.subscribers) : (
+                          creator.ingestionStatus === 'pending' || creator.ingestionStatus === 'processing' ? (
+                            <span className="flex items-center gap-1">
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              Loading...
+                            </span>
+                          ) : 'Unknown'
+                        )}
                       </p>
                     </div>
                   </button>

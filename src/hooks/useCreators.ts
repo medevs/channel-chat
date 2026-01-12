@@ -125,24 +125,38 @@ export function useCreators() {
     return () => clearInterval(interval);
   }, [fetchCreators]);
 
+  // Update a specific creator in the list
+  const updateCreator = useCallback((updatedCreator: Creator) => {
+    setCreators((prev) => {
+      const updated = prev.map(c => 
+        c.id === updatedCreator.id ? updatedCreator : c
+      );
+      creatorsRef.current = updated;
+      return updated;
+    });
+  }, []);
+
   // Add a creator link for the current user
   const addCreator = useCallback(async (creator: Creator) => {
     if (!user) return;
 
-    // Link user to this creator
-    await supabase
-      .from('user_creators')
-      .insert({
-        user_id: user.id,
-        channel_id: creator.id,
-      });
-
-    // Update local state
+    // Just add to local state - polling will update with real data
     setCreators((prev) => {
       const updated = [creator, ...prev];
       creatorsRef.current = updated;
       return updated;
     });
+
+    // Link user to this creator in background
+    supabase
+      .from('user_creators')
+      .insert({
+        user_id: user.id,
+        channel_id: creator.id,
+      })
+      .then(({ error }) => {
+        if (error) console.error('Error linking creator:', error);
+      });
   }, [user]);
 
   // Refresh creators from database
@@ -215,6 +229,7 @@ export function useCreators() {
     isLoading,
     error,
     addCreator,
+    updateCreator,
     refresh,
     deleteCreator,
   };

@@ -168,6 +168,160 @@ async function fetchVideoMetadata(videoIds: string[], apiKey: string) {
   return videos;
 }
 
+// Background video processing function
+async function processVideosInBackground(
+  supabase: any,
+  channelInfo: any,
+  channel: any,
+  actualVideoLimit: number,
+  apiKey: string,
+  userId?: string
+) {
+  try {
+    console.log('Starting background video processing for channel:', channelInfo.channel_id);
+
+    // Fetch video IDs from uploads playlist
+    if (!channelInfo.uploads_playlist_id) {
+      console.error('Channel uploads playlist not found');
+      return;
+    }
+
+    console.log('Fetching video IDs from playlist:', channelInfo.uploads_playlist_id);
+    const videoIds = await fetchPlaylistVideoIds(channelInfo.uploads_playlist_id, apiKey, actualVideoLimit);
+    console.log(`Fetched ${videoIds.length} video IDs`);
+
+    if (videoIds.length === 0) {
+      // Update channel status to completed with no videos
+      await supabase
+        .from('channels')
+        .update({
+          ingestion_status: 'completed',
+          ingestion_progress: 100,
+          indexed_videos: 0,
+          total_videos: 0,
+        })
+        .eq('id', channel.id);
+      return;
+    }
+
+    // Fetch video metadata
+    console.log('Fetching video metadata...');
+    const videos = await fetchVideoMetadata(videoIds, apiKey);
+    console.log(`Fetched metadata for ${videos.length} videos`);
+
+    // Insert videos into database
+    const videosToInsert = videos.map(video => ({
+      video_id: video.video_id,
+      channel_id: channelInfo.channel_id,
+      title: video.title,
+      description: video.description,
+      published_at: video.published_at,
+      duration: video.duration,
+      duration_seconds: video.duration_seconds,
+      thumbnail_url: video.thumbnail_url,
+      view_count: video.view_count,
+      like_count: video.like_count,
+      live_broadcast_content: video.live_broadcast_content,
+      has_live_streaming_details: video.has_live_streaming_details,
+    }));
+
+    console.log('Inserting videos into database:', videosToInsert.length);
+
+    const { error: videoError } = await supabase
+      .from('videos')
+      .upsert(videosToInsert, { onConflict: 'video_id' });
+    
+    if (videoError) {
+      console.error('Video insert error:', videoError);
+      throw videoError;
+    }
+
+    // Increment videos indexed count for user if userId provided
+    if (userId && videos.length > 0) {
+      console.log('Incrementing videos indexed for user:', userId, 'count:', videos.length);
+      const { error: videosCountError } = await supabase.rpc('increment_videos_indexed', { 
+        p_user_id: userId, 
+        p_count: videos.length 
+      });
+      if (videosCountError) {
+        console.error('Error incrementing videos count:', videosCountError);
+      }
+    }
+
+    // Update channel with completion status
+    const { error: finalUpdateError } = await supabase
+      .from('channels')
+      .update({
+        ingestion_status: 'completed',
+        ingestion_progress: 100,
+        indexed_videos: videos.length,
+        total_videos: videos.length,
+      })
+      .eq('id', channel.id);
+
+    if (finalUpdateError) {
+      console.error('Final update error:', finalUpdateError);
+    }
+
+    // Trigger automatic pipeline processing
+    if (videos.length > 0) {
+      console.log('Triggering automatic pipeline processing for channel:', channelInfo.channel_id);
+      
+      try {
+        // Step 1: Trigger transcript extraction
+        console.log('Invoking extract-transcripts function...');
+        const { error: extractError } = await supabase.functions.invoke('extract-transcripts', {
+          body: { channelId: channelInfo.channel_id },
+          headers: {
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (extractError) {
+          console.error('Error triggering transcript extraction:', extractError);
+        } else {
+          console.log('Transcript extraction triggered successfully');
+          
+          // Step 2: Trigger embedding generation
+          console.log('Invoking run-pipeline function...');
+          const { error: pipelineError } = await supabase.functions.invoke('run-pipeline', {
+            body: { 
+              channel_id: channelInfo.channel_id,
+              process_all: true 
+            },
+            headers: {
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (pipelineError) {
+            console.error('Error triggering pipeline:', pipelineError);
+          } else {
+            console.log('Pipeline triggered successfully');
+          }
+        }
+      } catch (pipelineError) {
+        console.error('Pipeline trigger failed:', pipelineError);
+      }
+    }
+
+    console.log('Background video processing completed for channel:', channelInfo.channel_id);
+  } catch (error) {
+    console.error('Background processing error:', error);
+    
+    // Update channel status to error
+    await supabase
+      .from('channels')
+      .update({
+        ingestion_status: 'error',
+        ingestion_progress: 0,
+      })
+      .eq('id', channel.id);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -193,9 +347,12 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     const body = await req.json();
-    const { channelUrl, userId, videoLimit = 5 } = body;
+    const { channelUrl, userId, videoLimit = 5, importSettings, returnImmediately = false } = body;
     
-    console.log('Request body:', { channelUrl, userId, videoLimit });
+    // Use importSettings.limit if provided, otherwise fall back to videoLimit
+    const actualVideoLimit = importSettings?.limit || videoLimit;
+    
+    console.log('Request body:', { channelUrl, userId, videoLimit, actualVideoLimit });
 
     if (!channelUrl) {
       return new Response(
@@ -314,6 +471,44 @@ serve(async (req) => {
       }
     }
 
+    // If returnImmediately is true, return channel data now and process videos in background
+    if (returnImmediately) {
+      console.log('Returning immediately with channel data');
+      
+      // Return complete channel data immediately
+      const immediateResponse = {
+        success: true,
+        message: `Channel ${channelInfo.channel_name} added successfully. Video processing started in background.`,
+        channel: {
+          id: channel.id,
+          channel_id: channelInfo.channel_id,
+          channel_name: channelInfo.channel_name,
+          avatar_url: channelInfo.avatar_url,
+          subscriber_count: channelInfo.subscriber_count,
+          indexed_videos: 0,
+          total_videos: 0,
+          ingestion_status: 'processing',
+          ingestion_progress: 0,
+          last_indexed_at: channel.last_indexed_at,
+          // Include all the fields the frontend expects
+          ingestion_method: 'api',
+          ingest_videos: true,
+          ingest_shorts: false,
+          ingest_lives: false,
+          video_import_mode: importSettings?.mode || 'latest',
+          video_import_limit: actualVideoLimit,
+        }
+      };
+
+      // Start background processing (don't await)
+      processVideosInBackground(supabase, channelInfo, channel, actualVideoLimit, YOUTUBE_API_KEY, userId);
+
+      return new Response(
+        JSON.stringify(immediateResponse),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Fetch video IDs from uploads playlist
     if (!channelInfo.uploads_playlist_id) {
       return new Response(
@@ -323,7 +518,7 @@ serve(async (req) => {
     }
 
     console.log('Fetching video IDs from playlist:', channelInfo.uploads_playlist_id);
-    const videoIds = await fetchPlaylistVideoIds(channelInfo.uploads_playlist_id, YOUTUBE_API_KEY, videoLimit);
+    const videoIds = await fetchPlaylistVideoIds(channelInfo.uploads_playlist_id, YOUTUBE_API_KEY, actualVideoLimit);
     console.log(`Fetched ${videoIds.length} video IDs`);
 
     if (videoIds.length === 0) {

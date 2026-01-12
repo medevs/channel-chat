@@ -6,6 +6,14 @@ import type { Creator, ContentTypeOptions, ImportSettings } from '@/lib/types';
 // Configuration constants
 const INGEST_TIMEOUT_MS = 30000; // 30 seconds
 
+export interface LimitExceededError {
+  limitType: string;
+  current: number;
+  limit: number;
+  planType: string;
+  message: string;
+}
+
 export function useIngestChannel() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
@@ -43,7 +51,9 @@ export function useIngestChannel() {
           importSettings: importSettings || {
             mode: 'latest',
             limit: 3 // Test with max 3 videos
-          }
+          },
+          // Add flag to return immediately with creator data
+          returnImmediately: true
         },
         signal: controller.signal,
       });

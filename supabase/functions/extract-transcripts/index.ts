@@ -218,7 +218,6 @@ async function processVideoTranscript(
         extraction_status: result.status,
         error_message: result.errorMessage || null,
         confidence: result.status === 'completed' ? 0.95 : 0,
-        retry_count: 0,
       }, { onConflict: 'video_id' });
     
     if (upsertError) {
