@@ -1,118 +1,263 @@
-# Kiro Prompt: @add-to-devlog
-
-**Purpose:** Create professional daily development log entries matching hackathon standards with accurate git metrics and detailed progress tracking.
-
 ---
+description: "Add a structured daily entry to your development log with automatic technical progress tracking"
+---
+
+# Add to Development Log
 
 ## Daily Development Log Entry
 
-### Step 1: Calculate Hackathon Day
-Determine current date and calculate hackathon day (January 5, 2026 = Day 1).
+### User Information Gathering
 
-### Step 2: Gather Git Metrics
+Ask the user these questions to build today's log entry:
+
+**Core Questions:**
+1. **What did you work on today?** (Features, bugs, refactoring, planning, etc.)
+2. **How much time did you spend?** (Total hours, or breakdown by task if they prefer)
+3. **What were the main accomplishments?** (What got completed or significant progress made)
+4. **Any challenges or blockers encountered?** (Technical issues, decisions, learning curves)
+5. **Key decisions made?** (Architecture choices, technology selections, approach changes)
+6. **What's planned for next session?** (Next priorities or tasks)
+
+**Optional Details:**
+7. **Any new learnings or insights?** (Skills gained, patterns discovered, best practices learned)
+8. **Kiro CLI usage highlights?** (Which prompts were most helpful, new workflows discovered)
+
+### Date and Progress Tracking
+
+First, determine the current date and calculate which day of the hackathon this is:
+
 ```bash
-cd /path/to/project
+# Get current date
+date +"%B %d, %Y (%A)"
 
-# Today's commits
-git log --since="$(date +%Y-%m-%d)" --oneline
-
-# Today's line statistics  
-git log --since="$(date +%Y-%m-%d)" --pretty=tformat: --numstat | awk '{add+=$1; del+=$2} END {printf "Lines added: %d, Lines removed: %d, Net change: %d\n", add, del, add-del}'
-
-# Commit count today
-git log --since="$(date +%Y-%m-%d)" --oneline | wc -l
-
-# Total project stats
-git rev-list --count HEAD
-git log --pretty=tformat: --numstat | awk '{add+=$1; del+=$2} END {printf "Total added: %d, Total removed: %d\n", add, del}'
+# Calculate hackathon day (January 5, 2026 = Day 1)
+# This will help number the daily entries correctly
 ```
 
-### Step 3: Ask User for Details
-**Required Information:**
-1. **Total hours worked today**
-2. **Time breakdown** (e.g., "Authentication: 3h, UI: 2h, Debugging: 1h")
-3. **Main accomplishments** (features completed)
-4. **Key challenges and solutions**
-5. **Technical decisions made**
-6. **Kiro CLI commands used**
+### Technical Progress Analysis
 
-### Step 4: Generate Professional Entry
+After gathering user responses, automatically check technical progress using these commands:
 
-Use this format based on the example:
+#### Git Activity Analysis
+```bash
+# Check if we're in a git repository
+if git rev-parse --git-dir > /dev/null 2>&1; then
+    echo "Git repository detected"
+    
+    # Get today's commits (try different time formats)
+    echo "=== Today's Commits ==="
+    git log --since="$(date +%Y-%m-%d)" --oneline --author="$(git config user.name)" 2>/dev/null || echo "No commits found for today"
+    
+    # Get detailed commit info with line changes for today
+    echo "=== Today's Detailed Changes ==="
+    git log --since="$(date +%Y-%m-%d)" --stat --author="$(git config user.name)" 2>/dev/null || echo "No detailed changes for today"
+    
+    # Get total line changes for today
+    echo "=== Today's Line Statistics ==="
+    git log --since="$(date +%Y-%m-%d)" --author="$(git config user.name)" --pretty=tformat: --numstat 2>/dev/null | awk '{add+=$1; del+=$2} END {if(NR>0) printf "Lines added: %d, Lines removed: %d, Net change: %d\n", add, del, add-del; else print "No line changes today"}'
+    
+    # Check current branch and status
+    echo "=== Repository Status ==="
+    git status --porcelain
+    echo "Current branch: $(git branch --show-current)"
+    
+    # Get total project statistics
+    echo "=== Total Project Statistics ==="
+    git log --author="$(git config user.name)" --pretty=tformat: --numstat 2>/dev/null | awk '{add+=$1; del+=$2} END {if(NR>0) printf "Total lines added: %d, Total lines removed: %d\n", add, del; else print "No statistics available"}'
+    
+    # Count total commits by user
+    echo "=== Total Commits ==="
+    git rev-list --count --author="$(git config user.name)" HEAD 2>/dev/null || echo "Cannot count commits"
+    
+else
+    echo "Not in a git repository - skipping git analysis"
+fi
+```
+
+#### GitHub Activity (if GitHub CLI is available)
+```bash
+# Check if gh CLI is available
+which gh
+
+# If available, get recent PR activity
+gh pr list --author="@me" --state=all --limit=5
+
+# Get recent issues activity
+gh issue list --author="@me" --state=all --limit=5
+
+# Check recent repository activity
+gh repo view --json pushedAt,updatedAt
+```
+
+#### File Changes Analysis
+```bash
+# Show files changed today
+git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "No recent commits to compare"
+
+# Show detailed line changes for today
+git diff --stat HEAD~1 HEAD 2>/dev/null || echo "No recent commits to compare"
+
+# Count different file types modified
+find . -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.go" -o -name "*.java" -o -name "*.rb" -o -name "*.php" -o -name "*.cpp" -o -name "*.c" -o -name "*.cs" -o -name "*.html" -o -name "*.css" -o -name "*.md" | xargs ls -lt | head -10
+
+# Get project file count and size
+find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.go" -o -name "*.java" -o -name "*.rb" -o -name "*.php" -o -name "*.cpp" -o -name "*.c" -o -name "*.cs" -o -name "*.html" -o -name "*.css" \) -not -path "./node_modules/*" -not -path "./.git/*" -not -path "./venv/*" -not -path "./__pycache__/*" | wc -l
+```
+
+### DEVLOG.md Entry Generation
+
+Create a structured daily entry using this template and append it to `.agents/devlog/DEVLOG.md`:
 
 ```markdown
-### Day X (Date) - Main Focus [Xh]
-- **Morning (Xh)**: Specific work done
-- **Midday (Xh)**: Specific work done  
-- **Afternoon (Xh)**: Specific work done
-- **Challenge**: Specific issue encountered
-- **Solution**: How it was resolved
-- **Kiro Usage**: Commands and prompts used
+## Day [X] ([Full Date]) - [Main Focus/Theme] [[Total Time]h]
 
-**Commits Made:**
-```
-[actual git commit messages]
-```
+### 📊 **Daily Metrics**
+- **Time Spent**: [Total hours] ([Breakdown if provided])
+- **Commits Made**: [Number from git analysis]
+- **Lines Added**: [From git stats]
+- **Lines Removed**: [From git stats]
+- **Net Lines**: [Added - Removed]
+- **Files Modified**: [Count from git analysis]
 
-**Technical Progress:**
-- Files modified: [count]
-- Lines added: [actual number]
-- Lines removed: [actual number]
-- Net change: [actual calculation]
-```
+### 🎯 **Accomplishments**
+[User's main accomplishments - bullet points]
 
-### Step 5: Update Overall Statistics
+### 💻 **Technical Progress**
+**Commits Made Today:**
+[Git commit summary from commands above]
 
-Update the header statistics:
-- Total Development Days
-- Total Time Logged  
-- Total Commits
-- Total Lines Added/Removed
-- Kiro CLI Sessions
+**Code Changes:**
+[File changes summary with line counts]
 
-### Step 6: Professional Summary
+**GitHub Activity:**
+[PR/Issue activity if GitHub CLI available]
 
-Provide summary in this format:
+### 🔧 **Work Breakdown**
+- **[Task Category]**: [Time] - [Description]
+- **[Task Category]**: [Time] - [Description]
+[Based on user's time breakdown]
 
-```markdown
-✅ **Devlog Entry Added Successfully!**
+### 🚧 **Challenges & Solutions**
+[User's reported challenges and how they were addressed]
 
-**Entry Details:**
-- Day: X (Date)
-- Time Logged: Xh
-- Commits: [actual count]
-- Lines Added: [actual number]
-- Net Change: [actual calculation]
+### 🧠 **Key Decisions**
+[Important technical or architectural decisions made]
 
-**Professional Format:**
-✅ Hour-by-hour breakdown included
-✅ Actual git metrics captured
-✅ Technical decisions documented
-✅ Challenges and solutions detailed
-✅ Ready for hackathon submission
-```
+### 📚 **Learnings & Insights**
+[New skills, patterns, or knowledge gained]
+
+### ⚡ **Kiro CLI Usage**
+[Prompts used, workflow improvements, custom commands created]
+
+### 📋 **Next Session Plan**
+[What's planned for the next development session]
 
 ---
+```
 
-## Implementation Notes
+### Metadata Update Instructions
 
-**Critical Requirements:**
-- ALWAYS get actual git metrics, never assume zero commits
-- Use professional hour-by-hour format like the example
-- Include real commit messages and line counts
-- Document technical decisions and challenges
-- Match the professional tone of the example devlog
+After creating the daily entry, update the "Development Statistics" section at the top of the devlog:
 
-**Quality Standards:**
-- Detailed time breakdown with specific accomplishments
-- Technical challenges with concrete solutions
-- Professional language suitable for hackathon judges
-- Accurate metrics that reflect real development work
-- Clear next steps and priorities
+**Required Updates:**
+1. **Total Development Days**: Count existing "## Day" entries and add 1
+2. **Total Hours Logged**: Parse previous entries for hours and add today's hours
+3. **Total Commits**: Use the git commit count from analysis
+4. **Lines of Code Added/Removed**: Use git statistics
+5. **Files Modified**: Count from git status and changes
 
-**Error Prevention:**
-- Always run git commands to get actual metrics
-- Never use placeholder values like [PENDING]
-- Verify commit count before writing entry
-- Ask user for missing information rather than assume
-- Match the professional format exactly
+**Update Process:**
+1. Read the current devlog file
+2. Find the "### Overall Progress" section
+3. Parse existing values (if any)
+4. Add today's metrics to the totals
+5. Replace the statistics section with updated values
+
+**Example Update:**
+```markdown
+### Overall Progress
+- **Total Development Days**: 1
+- **Total Hours Logged**: 0.8h
+- **Total Commits**: 1
+- **Lines of Code Added**: 15268
+- **Lines of Code Removed**: 0
+- **Files Modified**: 85
+```
+
+### Implementation Instructions
+
+1. **Calculate hackathon day and date**
+   - Get current date using `date` command
+   - Calculate which day of the hackathon this is (January 5, 2026 = Day 1)
+   - Use this for the day number in the entry
+
+2. **Check if devlog exists**
+   - Look for `.agents/devlog/DEVLOG.md`
+   - If it doesn't exist, create it using the template structure
+   - If it exists, prepare to append the new entry
+
+3. **Gather user information**
+   - Ask questions in a conversational way
+   - Allow users to skip optional questions
+   - Be flexible with time tracking (total or breakdown)
+
+4. **Execute technical analysis commands**
+   - Run git commands to gather commit and file change data
+   - Calculate detailed line statistics for today and total project
+   - Try GitHub CLI commands (gracefully handle if not available)
+   - Parse and summarize the technical data with specific metrics
+
+5. **Generate and append entry**
+   - Use the template above with user responses and technical data
+   - Include detailed daily metrics section with code statistics
+   - Use calculated day number and current date
+   - Append to `.agents/devlog/DEVLOG.md` file
+
+6. **Update summary statistics**
+   - Parse the git output to extract key metrics
+   - Update the "Development Statistics" section at the top of the devlog
+   - Calculate and update:
+     - Total Development Days (count existing day entries + 1)
+     - Total Hours Logged (sum from previous entries + today's hours)
+     - Total Commits (from git analysis)
+     - Lines of Code Added/Removed (from git analysis)
+     - Files Modified count
+   - Use regex/text parsing to update the existing statistics section
+
+7. **Provide summary**
+   - Confirm the entry was added to `.agents/devlog/DEVLOG.md`
+   - Show a brief summary of metrics captured
+   - Suggest next steps if appropriate
+
+### Error Handling
+
+- **Git not available**: Skip git analysis, note in entry
+- **GitHub CLI not available**: Skip GitHub analysis, note limitation
+- **No commits today**: Note "No commits made today" in technical progress
+- **DEVLOG.md locked/permissions**: Provide error message and manual instructions
+
+### Quality Guidelines
+
+- Keep entries scannable with clear headers and bullet points
+- Focus on factual progress and concrete accomplishments
+- Include both high-level summary and technical details
+- Maintain consistent formatting across entries
+- Balance brevity with useful detail
+
+### Success Criteria
+
+- User can quickly log daily progress without friction
+- Technical progress is automatically captured and summarized
+- Entries are structured and professional for hackathon submission
+- Process encourages regular documentation habits
+- Generated content is immediately useful for project tracking
+
+## Example Usage Flow
+
+1. User runs `@add-to-devlog`
+2. Assistant asks 6-8 questions about the day's work
+3. Assistant runs git/GitHub commands to gather technical data
+4. Assistant generates structured entry and appends to DEVLOG.md
+5. Assistant confirms completion and shows summary
+
+This creates a comprehensive daily log that combines user reflection with objective technical progress tracking.
