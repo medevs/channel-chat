@@ -1,71 +1,41 @@
-import { Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import type { Creator, SuggestedPrompt } from "@/types/chat";
+import { MessageSquare, UserPlus, Sparkles } from 'lucide-react';
 
 interface EmptyStateProps {
-  creator: Creator;
-  onPromptClick: (prompt: string) => void;
-  className?: string;
+  type: 'no-creator' | 'no-messages';
 }
 
-const suggestedPrompts: SuggestedPrompt[] = [
-  { id: '1', text: 'What topics does this creator cover?', category: 'general' },
-  { id: '2', text: 'What are the key takeaways from recent videos?', category: 'general' },
-  { id: '3', text: 'What advice would you give to beginners?', category: 'specific' },
-];
+export function EmptyState({ type }: EmptyStateProps) {
+  if (type === 'no-creator') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full bg-background px-6 pt-16 md:pt-0">
+        <div className="text-center max-w-sm">
+          <div className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-6 rounded-3xl bg-muted flex items-center justify-center animate-float">
+            <UserPlus className="w-10 h-10 md:w-12 md:h-12 text-muted-foreground" />
+          </div>
+          <h3 className="font-display font-semibold text-xl md:text-2xl text-foreground mb-3">
+            Select a creator
+          </h3>
+          <p className="text-sm md:text-base text-muted-foreground text-balance">
+            Choose a creator from the sidebar or add a new one to start chatting with their content.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-export function EmptyState({ creator, onPromptClick, className }: EmptyStateProps) {
   return (
-    <div className={cn("text-center py-12", className)}>
-      {/* Animated Icon */}
-      <div className="relative mb-8">
-        <div className="w-16 h-16 mx-auto bg-teal-500/20 rounded-full flex items-center justify-center">
-          <Sparkles className="w-8 h-8 text-teal-400 animate-pulse" />
+    <div className="flex flex-col items-center justify-center h-full bg-background px-6">
+      <div className="text-center max-w-sm">
+        <div className="w-20 h-20 md:w-24 md:h-24 mx-auto mb-6 rounded-3xl bg-primary/10 flex items-center justify-center">
+          <Sparkles className="w-10 h-10 md:w-12 md:h-12 text-primary" />
         </div>
-        {/* Floating sparkles animation */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-2 left-8 w-1 h-1 bg-teal-400 rounded-full animate-ping" style={{ animationDelay: '0s' }} />
-          <div className="absolute top-8 right-6 w-1 h-1 bg-teal-400 rounded-full animate-ping" style={{ animationDelay: '1s' }} />
-          <div className="absolute bottom-4 left-12 w-1 h-1 bg-teal-400 rounded-full animate-ping" style={{ animationDelay: '2s' }} />
-        </div>
-      </div>
-
-      {/* Heading */}
-      <h3 className="text-2xl font-bold text-white mb-3">
-        Start a conversation
-      </h3>
-      
-      {/* Description */}
-      <p className="text-slate-400 mb-8 max-w-md mx-auto leading-relaxed">
-        Ask {creator.name} anything based on their {creator.videosIndexed} indexed videos. 
-        Get insights, advice, and knowledge directly from their content.
-      </p>
-
-      {/* Suggested Prompts */}
-      <div className="space-y-3 max-w-lg mx-auto">
-        <p className="text-sm font-medium text-slate-300 mb-4">
-          Try asking:
+        <h3 className="font-display font-semibold text-xl md:text-2xl text-foreground mb-3">
+          Start a conversation
+        </h3>
+        <p className="text-sm md:text-base text-muted-foreground text-balance">
+          Ask anything about the creator's videos. AI will search through their content to find relevant answers.
         </p>
-        {suggestedPrompts.map((prompt) => (
-          <Button
-            key={prompt.id}
-            variant="outline"
-            onClick={() => onPromptClick(prompt.text)}
-            className="w-full text-left justify-start h-auto p-4 border-slate-600 text-slate-300 hover:text-white hover:border-teal-500 hover:bg-teal-500/5 transition-all duration-200"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-2 h-2 bg-teal-400 rounded-full flex-shrink-0" />
-              <span className="text-sm">{prompt.text}</span>
-            </div>
-          </Button>
-        ))}
       </div>
-
-      {/* Footer hint */}
-      <p className="text-xs text-slate-500 mt-8">
-        All responses are based on {creator.name}'s actual video content
-      </p>
     </div>
   );
 }

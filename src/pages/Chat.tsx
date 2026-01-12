@@ -1,171 +1,117 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { useChat } from "@/hooks/useChat";
-import { useVideoPlayer } from "@/hooks/useVideoPlayer";
-import { useBreakpoint } from "@/hooks/useBreakpoint";
-import { AppSidebar } from "@/components/chat/AppSidebar";
-import { ChatArea } from "@/components/chat/ChatArea";
-import { VideoPanel } from "@/components/chat/VideoPanel";
-import { Button } from "@/components/ui/button";
-import { Menu, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import type { Creator, VideoSource, VideoImportMode } from "@/types/chat";
-import type { Tables } from "@/types/database";
+import { useState, useCallback, useEffect } from 'react';
+import type { Creator, ActiveVideo } from '@/types/chat';
+import { useCreators } from '@/hooks/useCreators';
+import { AppSidebar } from '@/components/chat/AppSidebar';
+import { ChatArea } from '@/components/chat/ChatArea';
+import { VideoPanel } from '@/components/chat/VideoPanel';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { Button } from '@/components/ui/button';
+import { Menu, Loader2 } from 'lucide-react';
 
 export function Chat() {
-  const { user } = useAuth();
-  const chat = useChat();
-  const { isOpen, currentVideo, timestamp, openVideo, closeVideo } = useVideoPlayer();
+  const { creators, isLoading: creatorsLoading, error: creatorsError, addCreator, deleteCreator } = useCreators();
+  
+  const [activeCreatorId, setActiveCreatorId] = useState<string | null>(null);
+  const [activeVideo, setActiveVideo] = useState<ActiveVideo | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
+  
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === 'mobile';
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
-  const [creators, setCreators] = useState<Creator[]>([]);
-  const [isLoadingCreators, setIsLoadingCreators] = useState(true);
+  const isTablet = breakpoint === 'tablet';
 
-  // Load creators from database
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   useEffect(() => {
-    const loadCreators = async () => {
-      if (!user) return;
-      
-      try {
-        // Query user_creators to get the user's channels, then join with channels table
-        const { data, error } = await supabase
-          .from('user_creators')
-          .select(`
-            channels (
-              id,
-              channel_id,
-              channel_name,
-              channel_url,
-              avatar_url,
-              subscriber_count,
-              indexed_videos,
-              total_videos,
-              ingestion_status,
-              ingestion_progress,
-              created_at
-            )
-          `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('Error loading creators:', error);
-          return;
-        }
-
-        if (data) {
-          const formattedCreators: Creator[] = data
-            .filter(item => item.channels) // Filter out null channels
-            .map(item => {
-              const channel = item.channels as unknown as Tables<'channels'>;
-              const ingestionStatus = channel.ingestion_status as Creator['ingestionStatus'] || 'pending';
-              const legacyStatus = ingestionStatus === 'processing' ? 'processing' : 
-                                 ingestionStatus === 'completed' ? 'completed' :
-                                 ingestionStatus === 'failed' ? 'failed' :
-                                 ingestionStatus === 'partial' ? 'partial' :
-                                 ingestionStatus === 'no_captions' ? 'no_captions' : 'completed';
-              
-              return {
-                id: channel.id,
-                channelId: channel.channel_id,
-                name: channel.channel_name,
-                channelUrl: channel.channel_url,
-                avatarUrl: channel.avatar_url,
-                subscribers: channel.subscriber_count || '0',
-                indexedVideos: channel.indexed_videos || 0,
-                totalVideos: channel.total_videos || 0,
-                ingestionStatus,
-                ingestionProgress: channel.ingestion_progress || 0,
-                ingestionMethod: null,
-                errorMessage: null,
-                lastIndexedAt: null,
-                ingestVideos: true,
-                ingestShorts: false,
-                ingestLives: false,
-                videoImportMode: 'latest' as VideoImportMode,
-                videoImportLimit: null,
-                publicSlug: null,
-                // Legacy compatibility
-                avatar: channel.avatar_url || '',
-                subscriberCount: channel.subscriber_count || '0',
-                videosIndexed: channel.indexed_videos || 0,
-                status: legacyStatus,
-                progress: channel.ingestion_progress || 0,
-              };
-            });
-          setCreators(formattedCreators);
-        }
-      } catch (error) {
-        console.error('Error loading creators:', error);
-      } finally {
-        setIsLoadingCreators(false);
-      }
-    };
-
-    loadCreators();
-  }, [user]);
-
-  const handleChannelAdded = (creator: Creator) => {
-    setCreators(prev => {
-      // Check if creator already exists
-      const exists = prev.find(c => c.id === creator.id);
-      if (exists) return prev;
-      return [...prev, creator];
-    });
-    chat.selectCreator(creator);
-  };
-
-  // Handle mobile sidebar behavior - update when breakpoint changes
-  useEffect(() => {
-    if (typeof isMobile === 'boolean') {
-      setSidebarOpen(prev => isMobile ? false : prev);
+    if (isMobile || isTablet) {
+      setSidebarOpen(false);
+    } else {
+      setSidebarOpen(true);
     }
+  }, [isMobile, isTablet]);
+
+  const activeCreator = creators.find((c) => c.id === activeCreatorId) || null;
+
+  const handleSelectCreator = useCallback((creatorId: string) => {
+    setActiveCreatorId(creatorId);
+    setActiveVideo(null);
+    setShowSettings(false);
+    setShowSaved(false);
+    if (isMobile) setSidebarOpen(false);
   }, [isMobile]);
 
-  const handleSelectCreator = (creatorId: string) => {
-    const creator = creators.find(c => c.id === creatorId);
-    if (creator) {
-      chat.selectCreator(creator);
-    }
+  const handleAddCreator = useCallback((newCreator: Creator) => {
+    addCreator(newCreator);
+    setActiveCreatorId(newCreator.id);
+    setActiveVideo(null);
+    setShowSettings(false);
+    setShowSaved(false);
     if (isMobile) setSidebarOpen(false);
-  };
+  }, [isMobile, addCreator]);
 
-  const handleSourceClick = (videoId: string, timestamp?: number) => {
-    // Create a VideoSource object for the video player
-    const videoSource: VideoSource = {
-      videoId,
-      title: 'Video',
-      timestamp: timestamp ? `${Math.floor(timestamp / 60)}:${Math.floor(timestamp % 60).toString().padStart(2, '0')}` : null,
-      timestampSeconds: timestamp || null,
-      hasTimestamp: timestamp !== undefined,
-      id: videoId,
-      thumbnail: '',
-      url: `https://youtube.com/watch?v=${videoId}`,
-    };
-    openVideo(videoSource, timestamp);
-  };
+  const handleDeleteCreator = useCallback(async (creatorId: string, channelId: string) => {
+    const result = await deleteCreator(creatorId, channelId);
+    if (result.success && activeCreatorId === creatorId) {
+      setActiveCreatorId(null);
+      setActiveVideo(null);
+    }
+    return result;
+  }, [deleteCreator, activeCreatorId]);
 
-  const handleToggleSidebar = () => {
-    setSidebarOpen(prev => !prev);
-  };
+  const handleTimestampClick = useCallback((video: ActiveVideo) => {
+    setActiveVideo(video);
+  }, []);
+
+  const handleCloseVideo = useCallback(() => {
+    setActiveVideo(null);
+  }, []);
+
+  const handleOpenSettings = useCallback(() => {
+    setShowSettings(true);
+    setShowSaved(false);
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile]);
+
+  const handleCloseSettings = useCallback(() => {
+    setShowSettings(false);
+  }, []);
+
+  const handleOpenSaved = useCallback(() => {
+    setShowSaved(true);
+    setShowSettings(false);
+    setActiveCreatorId(null);
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile]);
+
+  const handleCloseSaved = useCallback(() => {
+    setShowSaved(false);
+  }, []);
+
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
+
+  // Handle search result click - navigate to creator and highlight message
+  const handleSearchResultClick = useCallback((channelId: string, messageId: string) => {
+    const creator = creators.find((c) => c.channelId === channelId);
+    if (creator) {
+      setActiveCreatorId(creator.id);
+      setShowSettings(false);
+      setShowSaved(false);
+      setHighlightMessageId(messageId);
+      if (isMobile) setSidebarOpen(false);
+      
+      // Clear highlight after a delay
+      setTimeout(() => setHighlightMessageId(null), 3000);
+    }
+  }, [creators, isMobile]);
 
   const showHamburger = (isMobile && !sidebarOpen) || (!isMobile && !sidebarOpen);
 
-  if (!user) {
+  if (creatorsLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoadingCreators) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Loading creators...</p>
@@ -174,8 +120,23 @@ export function Chat() {
     );
   }
 
+  if (creatorsError) {
+    return (
+      <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center px-4">
+          <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+            <span className="text-destructive text-xl">!</span>
+          </div>
+          <h2 className="font-display font-semibold text-lg">Failed to load creators</h2>
+          <p className="text-sm text-muted-foreground">{creatorsError}</p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative flex h-screen w-full overflow-hidden bg-background">
+    <div className="relative flex h-[100dvh] w-full overflow-hidden bg-background">
       {showHamburger && (
         <Button
           variant="ghost"
@@ -189,39 +150,44 @@ export function Chat() {
 
       <AppSidebar
         creators={creators}
-        activeCreatorId={chat.selectedCreator?.id || null}
+        activeCreatorId={activeCreatorId}
         onSelectCreator={handleSelectCreator}
-        onDeleteCreator={async () => ({ success: true })}
-        onOpenSettings={() => {}}
-        onOpenSaved={() => {}}
-        showSaved={false}
+        onAddCreator={handleAddCreator}
+        onDeleteCreator={handleDeleteCreator}
+        onOpenSettings={handleOpenSettings}
+        onOpenSaved={handleOpenSaved}
+        showSaved={showSaved}
         isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        onToggle={handleToggleSidebar}
         isMobile={isMobile}
-        isTablet={false}
-        onChannelAdded={handleChannelAdded}
+        isTablet={isTablet}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         <div className="flex-1 flex overflow-hidden min-w-0">
           <div className="flex-1 overflow-hidden min-w-0">
-            <ChatArea
-              creator={chat.selectedCreator}
-              messages={chat.messages}
-              isTyping={chat.isTyping}
-              onSendMessage={chat.sendMessage}
-              onClearChat={chat.clearChat}
-              onSourceClick={handleSourceClick}
-            />
+            {showSettings ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">Settings page coming soon...</p>
+              </div>
+            ) : showSaved ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">Saved answers coming soon...</p>
+              </div>
+            ) : (
+              <ChatArea
+                activeCreator={activeCreator}
+                onTimestampClick={handleTimestampClick}
+                activeVideoId={activeVideo?.videoId}
+                activeTimestamp={activeVideo?.timestamp}
+                onSearchResultClick={handleSearchResultClick}
+                highlightMessageId={highlightMessageId}
+              />
+            )}
           </div>
 
-          {isOpen && (
-            <VideoPanel
-              isOpen={isOpen}
-              video={currentVideo}
-              timestamp={timestamp}
-              onClose={closeVideo}
-            />
+          {activeVideo && !showSettings && (
+            <VideoPanel video={activeVideo} onClose={handleCloseVideo} />
           )}
         </div>
       </main>

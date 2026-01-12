@@ -39,7 +39,7 @@ export function Navigation() {
             </>
           ) : (
             <>
-              <Link to="/signin">
+              <Link to="/auth">
                 <Button
                   variant="ghost"
                   size="lg"

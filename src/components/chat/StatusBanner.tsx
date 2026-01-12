@@ -7,7 +7,7 @@ interface StatusBannerProps {
 }
 
 export function StatusBanner({ creator }: StatusBannerProps) {
-  const isProcessing = creator.status === 'processing';
+  const isProcessing = creator.status === 'processing' || creator.status === 'indexing' || creator.status === 'pending' || creator.status === 'extracting' || creator.status === 'paused';
   const isFailed = creator.status === 'failed';
   const isReady = creator.status === 'completed' || creator.status === 'partial';
   const hasIndexedContent = isReady && creator.videosIndexed > 0;

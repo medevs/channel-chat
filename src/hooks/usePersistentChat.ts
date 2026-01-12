@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { ChatMessage, VideoSource, RagChatResponse } from '@/lib/types';
+import type { ChatMessage, VideoSource, RagChatResponse } from '@/types/chat';
 import { useAuth } from '@/hooks/useAuth';
 
-const DEBUG_MODE = import.meta.env.VITE_DEBUG_MODE === 'true' || import.meta.env.DEV;
+const DEBUG_MODE = true;
 
 interface UsePersistentChatOptions {
   channelId: string | null;
@@ -16,6 +16,15 @@ interface DbChatSession {
   user_id: string;
   created_at: string;
   updated_at: string;
+}
+
+interface DbChatMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources: VideoSource[] | null;
+  created_at: string;
 }
 
 interface ConversationMessage {
@@ -31,7 +40,18 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
-  const loadOrCreateSession = useCallback(async (cId: string) => {
+  // Load or create session when channel changes
+  useEffect(() => {
+    if (!channelId || !user) {
+      setSessionId(null);
+      setMessages([]);
+      return;
+    }
+
+    loadOrCreateSession(channelId);
+  }, [channelId, user]);
+
+  const loadOrCreateSession = async (cId: string) => {
     if (!user) return;
 
     setIsLoadingHistory(true);
@@ -96,7 +116,6 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
         content: msg.content,
         sources: (msg.sources as VideoSource[]) || [],
         timestamp: new Date(msg.created_at),
-        role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
         debug: msg.role === 'assistant' && DEBUG_MODE ? {
           chunksFound: ((msg.sources as VideoSource[])?.length || 0),
           videosReferenced: new Set((msg.sources as VideoSource[])?.map(s => s.videoId) || []).size,
@@ -113,18 +132,7 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [user]);
-
-  // Load or create session when channel changes
-  useEffect(() => {
-    if (!channelId || !user) {
-      setSessionId(null);
-      setMessages([]);
-      return;
-    }
-
-    loadOrCreateSession(channelId);
-  }, [channelId, user, loadOrCreateSession]);
+  };
 
   const saveMessage = async (
     role: 'user' | 'assistant',
@@ -140,8 +148,8 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
           session_id: sessionId,
           role,
           content,
-          sources: sources.length > 0 ? sources : null,
-        })
+          sources: sources.length > 0 ? (sources as any) : null,
+        } as any)
         .select()
         .single();
 
@@ -150,10 +158,10 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
       // Update session's updated_at
       await supabase
         .from('chat_sessions')
-        .update({ updated_at: new Date().toISOString() })
+        .update({ updated_at: new Date().toISOString() } as any)
         .eq('id', sessionId);
 
-      return data?.id;
+      return (data as any).id;
     } catch (err) {
       console.error('[Chat] Error saving message:', err);
       return null;
@@ -180,7 +188,6 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
       type: 'user',
       content: query,
       timestamp: new Date(),
-      role: 'user',
     };
 
     // Add user message to state
@@ -213,7 +220,6 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
           content: data.message || 'Daily message limit reached. Try again tomorrow.',
           sources: [],
           timestamp: new Date(),
-          role: 'assistant',
         };
         setMessages(prev => [...prev, limitMessage]);
         return limitMessage;
@@ -246,10 +252,6 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
         chunkId: DEBUG_MODE ? `chunk-${citation.index}` : undefined,
         similarity: DEBUG_MODE ? citation.similarity : undefined,
         chunkText: DEBUG_MODE ? citation.text : undefined,
-        // Legacy compatibility
-        id: citation.videoId,
-        thumbnail: citation.thumbnailUrl || '/video-thumb.jpg',
-        url: `https://youtube.com/watch?v=${citation.videoId}`,
       }));
 
       const aiMessage: ChatMessage = {
@@ -259,7 +261,6 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
         sources: hasRealData ? sources : [],
         showSources: response.showCitations,
         timestamp: new Date(),
-        role: 'assistant',
         // NEW: Confidence and evidence from RAG
         confidence: response.confidence,
         evidence: response.evidence,
@@ -292,7 +293,6 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
         content: `Error: ${errorMessage}. Please try again.`,
         sources: [],
         timestamp: new Date(),
-        role: 'assistant',
         debug: DEBUG_MODE ? {
           chunksFound: 0,
           videosReferenced: 0,
@@ -305,7 +305,7 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
     } finally {
       setIsLoading(false);
     }
-  }, [channelId, creatorName, messages, sessionId, user?.id]);
+  }, [channelId, creatorName, messages, sessionId, user]);
 
   const clearHistory = useCallback(async () => {
     if (!sessionId) return;

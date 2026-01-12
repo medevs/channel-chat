@@ -1,24 +1,109 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { MessageSquare, Plus, Settings, LogOut, ChevronLeft, X, Bookmark, User, MoreVertical } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { MessageSquare, Plus, Settings, LogOut, ChevronLeft, X, Loader2, Trash2, MoreVertical, Bookmark } from 'lucide-react';
+import type { Creator } from '@/types/chat';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth';
 import { AddCreatorModal } from '@/components/AddCreatorModal';
-import type { Creator } from '@/types/chat';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+
+const formatSubscribers = (count: string | null): string => {
+  if (!count) return 'Unknown';
+  const num = parseInt(count, 10);
+  if (isNaN(num)) return count;
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return count;
+};
+
+const getStatusBadge = (creator: Creator) => {
+  // Processing states
+  if (creator.ingestionStatus === 'processing' || creator.ingestionStatus === 'indexing' || creator.ingestionStatus === 'pending' || creator.ingestionStatus === 'extracting' || creator.ingestionStatus === 'paused') {
+    return (
+      <Badge variant="outline" className="text-2xs px-1.5 py-0 h-4 gap-1 text-primary border-primary/30 bg-primary/10">
+        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+        {creator.ingestionProgress}%
+      </Badge>
+    );
+  }
+  
+  // No captions available - data limitation, not system failure
+  if (creator.ingestionStatus === 'no_captions') {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className="text-2xs px-1.5 py-0 h-4 text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-900/20 cursor-help">
+            No Captions
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-[200px]">
+          <p className="text-xs">This channel's videos don't have captions enabled. The creator needs to add captions for chat to work.</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+  
+  // Failed - system error
+  if (creator.ingestionStatus === 'failed') {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className="text-2xs px-1.5 py-0 h-4 text-destructive border-destructive/30 cursor-help">
+            Failed
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-[200px]">
+          <p className="text-xs">{creator.errorMessage || 'Failed to index channel. Try again later.'}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+  
+  // Partial success - some videos indexed
+  if (creator.ingestionStatus === 'partial') {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className="text-2xs px-1.5 py-0 h-4 text-amber-600 border-amber-300 cursor-help">
+            Partial
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-[200px]">
+          <p className="text-xs">{creator.indexedVideos} of {creator.totalVideos} videos have captions and are ready for chat.</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+  
+  // Completed - show indexed count if available
+  if (creator.ingestionStatus === 'completed' && creator.indexedVideos > 0) {
+    return (
+      <Badge variant="outline" className="text-2xs px-1.5 py-0 h-4 text-emerald-600 border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20">
+        {creator.indexedVideos} videos
+      </Badge>
+    );
+  }
+  
+  return null;
+};
 
 interface AppSidebarProps {
   creators: Creator[];
   activeCreatorId: string | null;
-  onSelectCreator: (creatorId: string) => void;
-  onDeleteCreator: (creatorId: string) => Promise<{ success: boolean }>;
+  onSelectCreator: (id: string) => void;
+  onAddCreator: (creator: Creator) => void;
+  onDeleteCreator: (creatorId: string, channelId: string) => Promise<{ success: boolean; error?: string }>;
   onOpenSettings: () => void;
   onOpenSaved: () => void;
   showSaved?: boolean;
@@ -26,14 +111,13 @@ interface AppSidebarProps {
   onToggle: () => void;
   isMobile: boolean;
   isTablet: boolean;
-  className?: string;
-  onChannelAdded?: (creator: Creator) => void;
 }
 
 export function AppSidebar({
   creators,
   activeCreatorId,
   onSelectCreator,
+  onAddCreator,
   onDeleteCreator,
   onOpenSettings,
   onOpenSaved,
@@ -42,293 +126,343 @@ export function AppSidebar({
   onToggle,
   isMobile,
   isTablet,
-  className,
-  onChannelAdded
 }: AppSidebarProps) {
   const { user, signOut } = useAuth();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isCollapsed = !isOpen && !isMobile;
-  const isMobileOrTablet = isMobile || isTablet;
-  const [isAddCreatorModalOpen, setIsAddCreatorModalOpen] = useState(false);
-
-  const handleAddCreator = () => {
-    setIsAddCreatorModalOpen(true);
-  };
-
-  const handleCreatorAdded = (creator: Creator) => {
-    if (onChannelAdded) {
-      onChannelAdded(creator);
-    }
-    setIsAddCreatorModalOpen(false);
-  };
 
   const handleLogout = async () => {
     await signOut();
   };
 
-  const handleCreatorSelect = useCallback((creatorId: string) => {
-    onSelectCreator(creatorId);
-  }, [onSelectCreator]);
+  const handleDeleteCreator = useCallback(async (e: React.MouseEvent, creator: Creator) => {
+    e.stopPropagation();
+    if (!confirm(`Remove "${creator.name}" from your list? Your chat history will be deleted.`)) return;
+    
+    setDeletingId(creator.id);
+    const result = await onDeleteCreator(creator.id, creator.channelId);
+    setDeletingId(null);
+    
+    if (result.success) {
+      toast.success(`Removed ${creator.name}`);
+    } else {
+      toast.error(result.error || 'Failed to remove creator');
+    }
+  }, [onDeleteCreator]);
 
-  const formatSubscribers = (count: string): string => {
-    const num = parseInt(count.replace(/[^\d]/g, ''), 10);
-    if (isNaN(num)) return count;
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return count;
-  };
-
-  // Close sidebar when clicking outside on mobile
+  // Close sidebar on outside click (mobile/tablet overlay)
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        isMobileOrTablet &&
-        isOpen &&
-        sidebarRef.current &&
-        !sidebarRef.current.contains(event.target as Node)
-      ) {
+    if ((!isMobile && !isTablet) || !isOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (sidebarRef.current && !sidebarRef.current.contains(e.target as Node)) {
         onToggle();
       }
     };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isMobile, isTablet, isOpen, onToggle]);
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isMobileOrTablet, isOpen, onToggle]);
+  const handleCreatorSelect = useCallback((id: string) => {
+    onSelectCreator(id);
+  }, [onSelectCreator]);
 
-  if (!isOpen && isMobileOrTablet) {
-    return null;
-  }
+  // On mobile/tablet: sidebar is an overlay, positioned fixed
+  // On desktop: sidebar is part of the layout flow
+  const isMobileOrTablet = isMobile || isTablet;
 
-  return (
-    <>
-      {/* Mobile overlay */}
-      {isMobileOrTablet && isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 lg:hidden"
-          onClick={onToggle}
-        />
+  const sidebarContent = (
+    <aside
+      ref={sidebarRef}
+      className={cn(
+        'flex flex-col h-full bg-sidebar transition-all duration-300 ease-out overflow-hidden',
+        isMobileOrTablet
+          ? 'fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] shadow-2xl safe-top safe-bottom'
+          : isCollapsed ? 'w-[72px]' : 'w-[260px] lg:w-[280px]',
+        !isMobileOrTablet && 'border-r border-sidebar-border'
       )}
-
-      <aside
-        ref={sidebarRef}
-        className={cn(
-          "relative flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out z-40",
-          isMobileOrTablet
-            ? "fixed left-0 top-0 h-full w-80 shadow-medium"
-            : isCollapsed
-            ? "w-16"
-            : "w-80",
-          !isOpen && !isMobileOrTablet && "w-0 overflow-hidden",
-          className
+    >
+      {/* Header */}
+      <header className="flex items-center gap-3 p-4 shrink-0">
+        <div className={cn(
+          'flex items-center justify-center shrink-0 rounded-xl bg-primary shadow-glow',
+          isCollapsed ? 'w-10 h-10' : 'w-9 h-9'
+        )}>
+          <MessageSquare className={cn('text-primary-foreground', isCollapsed ? 'w-5 h-5' : 'w-4 h-4')} />
+        </div>
+        {!isCollapsed && (
+          <div className="flex-1 min-w-0">
+            <h1 className="font-display font-semibold text-sidebar-foreground truncate">ChannelChat</h1>
+          </div>
         )}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-          {!isCollapsed && (
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <MessageSquare className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <h1 className="font-display font-semibold text-sidebar-foreground">ChannelChat</h1>
-            </div>
-          )}
-          
-          {isMobileOrTablet && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggle}
-              className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          )}
-          
-          {!isMobileOrTablet && !isCollapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggle}
-              className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
+        {!isCollapsed && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggle}
+            className="shrink-0 h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+          >
+            {isMobile ? <X className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </Button>
+        )}
+      </header>
 
-        {/* Navigation */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Add Creator Button */}
-          <div className="p-4 border-b border-sidebar-border">
-            <Button
-              onClick={handleAddCreator}
+      {/* Creators Section */}
+      <div className="flex-1 overflow-y-auto scrollbar-thin px-3">
+        {!isCollapsed && (
+          <p className="px-2 py-2 text-2xs font-medium uppercase tracking-widest text-muted-foreground">
+            Creators
+          </p>
+        )}
+        <nav className="space-y-1">
+          {creators.map((creator, i) => (
+            <div
+              key={creator.id}
+              style={{ animationDelay: `${i * 50}ms` }}
               className={cn(
-                "w-full justify-start gap-3 bg-primary hover:bg-primary/90 text-primary-foreground",
-                isCollapsed && "justify-center px-0"
+                'w-full flex items-center gap-2 rounded-xl transition-all duration-200 text-left animate-fade-in group',
+                isCollapsed ? 'p-2 justify-center' : 'p-2.5 pr-2',
+                activeCreatorId === creator.id
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-soft'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent/60'
               )}
             >
-              <Plus className="w-4 h-4 flex-shrink-0" />
-              {!isCollapsed && "Add Creator"}
-            </Button>
-          </div>
-
-          {/* Add Channel - Removed, now using modal */}
-
-          {/* Creators List */}
-          <div className="flex-1 overflow-y-auto scrollbar-thin">
-            <div className="p-2 space-y-1">
-              {creators.map((creator) => (
-                <div
-                  key={creator.id}
-                  className={cn(
-                    "group relative flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
-                    "hover:bg-sidebar-accent",
-                    activeCreatorId === creator.id && "bg-sidebar-accent border border-sidebar-border",
-                    isCollapsed && "justify-center px-2"
-                  )}
-                  onClick={() => handleCreatorSelect(creator.id)}
-                >
-                  <Avatar className="w-8 h-8 flex-shrink-0">
-                    <AvatarImage src={creator.avatar} alt={creator.name} />
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                      {creator.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  
-                  {!isCollapsed && (
+              {isCollapsed ? (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => handleCreatorSelect(creator.id)}
+                      className="flex items-center justify-center"
+                    >
+                      <Avatar className={cn('shrink-0 ring-2 ring-transparent transition-all w-10 h-10', 
+                        activeCreatorId === creator.id && 'ring-primary/30'
+                      )}>
+                        <AvatarImage src={creator.avatarUrl || undefined} alt={creator.name} />
+                        <AvatarFallback className="font-display text-xs">{creator.name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{creator.name}</TooltipContent>
+                </Tooltip>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleCreatorSelect(creator.id)}
+                    className="flex items-center gap-3 flex-1 min-w-0"
+                  >
+                    <Avatar className={cn('shrink-0 ring-2 ring-transparent transition-all w-9 h-9', 
+                      activeCreatorId === creator.id && 'ring-primary/30'
+                    )}>
+                      <AvatarImage src={creator.avatarUrl || undefined} alt={creator.name} />
+                      <AvatarFallback className="font-display text-xs">{creator.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-sidebar-foreground truncate text-sm">
-                          {creator.name}
-                        </h3>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreVertical className="w-3 h-3" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteCreator(creator.id);
-                              }}
-                              className="text-destructive"
-                            >
-                              Remove Creator
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-[13px] truncate flex-1">{creator.name}</p>
+                        {getStatusBadge(creator)}
                       </div>
-                      
-                      <div className="flex items-center justify-between mt-1">
-                        <span className="text-xs text-sidebar-foreground/60">
-                          {formatSubscribers(creator.subscriberCount)} subscribers
-                        </span>
-                        
-                        {creator.status === 'processing' && creator.progress !== undefined ? (
-                          <Badge variant="outline" className="text-2xs px-1.5 py-0 h-4 gap-1 text-primary border-primary/30 bg-primary/10">
-                            {creator.progress}%
-                          </Badge>
-                        ) : creator.status === 'completed' ? (
-                          <Badge variant="outline" className="text-2xs px-1.5 py-0 h-4 text-green-600 border-green-300 bg-green-50 dark:bg-green-900/20">
-                            {creator.videosIndexed} videos
-                          </Badge>
-                        ) : null}
-                      </div>
+                      <p className="text-2xs text-muted-foreground truncate">
+                        {formatSubscribers(creator.subscribers)}
+                      </p>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom Navigation */}
-          <div className="border-t border-sidebar-border p-2 space-y-1">
-            <Button
-              variant="ghost"
-              onClick={onOpenSaved}
-              className={cn(
-                "w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent",
-                isCollapsed && "justify-center px-0",
-                showSaved && "bg-sidebar-accent"
-              )}
-            >
-              <Bookmark className="w-4 h-4 flex-shrink-0" />
-              {!isCollapsed && "Saved Answers"}
-            </Button>
-            
-            <Button
-              variant="ghost"
-              onClick={onOpenSettings}
-              className={cn(
-                "w-full justify-start gap-3 text-sidebar-foreground hover:bg-sidebar-accent",
-                isCollapsed && "justify-center px-0"
-              )}
-            >
-              <Settings className="w-4 h-4 flex-shrink-0" />
-              {!isCollapsed && "Settings"}
-            </Button>
-          </div>
-
-          {/* User Profile */}
-          <div className="border-t border-sidebar-border p-4">
-            <div className={cn(
-              "flex items-center gap-3",
-              isCollapsed && "justify-center"
-            )}>
-              <Avatar className="w-8 h-8 flex-shrink-0">
-                <AvatarImage src={user?.user_metadata?.avatar_url} />
-                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                  <User className="w-4 h-4" />
-                </AvatarFallback>
-              </Avatar>
-              
-              {!isCollapsed && (
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-sidebar-foreground truncate">
-                      {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}
-                    </p>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-sidebar-foreground hover:bg-sidebar-accent"
-                        >
-                          <MoreVertical className="w-3 h-3" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={handleLogout}>
-                          <LogOut className="w-4 h-4 mr-2" />
-                          Sign Out
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  <p className="text-xs text-sidebar-foreground/60 truncate">
-                    {user?.email}
-                  </p>
-                </div>
+                  </button>
+                  
+                  {/* Three-dot dropdown menu */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
+                      >
+                        {deletingId === creator.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <MoreVertical className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={(e) => handleDeleteCreator(e as unknown as React.MouseEvent, creator)}
+                        disabled={deletingId === creator.id}
+                        className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remove Creator
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
               )}
             </div>
-          </div>
+          ))}
+        </nav>
+
+        {/* Add Creator */}
+        <div className="mt-2">
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className={cn(
+                  'w-full flex items-center gap-3 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60',
+                  isCollapsed ? 'p-2 justify-center' : 'p-2.5'
+                )}
+              >
+                <div className={cn('flex items-center justify-center rounded-lg border-2 border-dashed border-border', 
+                  isCollapsed ? 'w-10 h-10' : 'w-9 h-9'
+                )}>
+                  <Plus className="w-4 h-4" />
+                </div>
+                {!isCollapsed && <span className="text-[13px] font-medium">Add Creator</span>}
+              </button>
+            </TooltipTrigger>
+            {isCollapsed && <TooltipContent side="right">Add Creator</TooltipContent>}
+          </Tooltip>
         </div>
-      </aside>
+
+        {/* Saved Answers */}
+        <div className="mt-2">
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onOpenSaved}
+                className={cn(
+                  'w-full flex items-center gap-3 rounded-xl transition-all duration-200',
+                  isCollapsed ? 'p-2 justify-center' : 'p-2.5',
+                  showSaved
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-soft'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60'
+                )}
+              >
+                <div className={cn(
+                  'flex items-center justify-center rounded-lg',
+                  isCollapsed ? 'w-10 h-10' : 'w-9 h-9',
+                  showSaved ? 'bg-primary/10' : 'bg-muted'
+                )}>
+                  <Bookmark className={cn('w-4 h-4', showSaved && 'text-primary')} />
+                </div>
+                {!isCollapsed && (
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-[13px] font-medium">Saved</span>
+                  </div>
+                )}
+              </button>
+            </TooltipTrigger>
+            {isCollapsed && <TooltipContent side="right">Saved</TooltipContent>}
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="shrink-0 p-3 border-t border-sidebar-border">
+        {/* User row */}
+        <div className={cn(
+          'flex items-center gap-2 p-2 rounded-lg',
+          isCollapsed ? 'justify-center' : ''
+        )}>
+          <Avatar className="h-8 w-8 shrink-0">
+            <AvatarFallback className="font-display text-xs bg-primary/10 text-primary">
+              {(user?.email?.charAt(0) || 'U').toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium truncate text-sidebar-foreground">{user?.email}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className={cn('flex gap-1 mt-2', isCollapsed ? 'flex-col' : 'flex-row')}>
+          {/* Theme toggle */}
+          {isCollapsed ? (
+            <ThemeToggle />
+          ) : (
+            <ThemeToggle />
+          )}
+        </div>
+        
+        <div className={cn('flex gap-1 mt-1', isCollapsed ? 'flex-col' : 'flex-row')}>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size={isCollapsed ? 'icon' : 'sm'}
+                onClick={onOpenSettings}
+                className={cn(
+                  'text-muted-foreground hover:text-foreground',
+                  !isCollapsed && 'flex-1 justify-start'
+                )}
+              >
+                <Settings className={cn('w-4 h-4', !isCollapsed && 'mr-2')} />
+                {!isCollapsed && 'Settings'}
+              </Button>
+            </TooltipTrigger>
+            {isCollapsed && <TooltipContent side="right">Settings</TooltipContent>}
+          </Tooltip>
+
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size={isCollapsed ? 'icon' : 'sm'}
+                onClick={handleLogout}
+                className={cn(
+                  'text-muted-foreground hover:text-foreground',
+                  !isCollapsed && 'flex-1 justify-start'
+                )}
+              >
+                <LogOut className={cn('w-4 h-4', !isCollapsed && 'mr-2')} />
+                {!isCollapsed && 'Logout'}
+              </Button>
+            </TooltipTrigger>
+            {isCollapsed && <TooltipContent side="right">Logout</TooltipContent>}
+          </Tooltip>
+        </div>
+      </div>
 
       {/* Add Creator Modal */}
       <AddCreatorModal
-        isOpen={isAddCreatorModalOpen}
-        onClose={() => setIsAddCreatorModalOpen(false)}
-        onAddCreator={handleCreatorAdded}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onAddCreator={(creator) => {
+          onAddCreator(creator);
+          setIsModalOpen(false);
+        }}
       />
-    </>
+    </aside>
   );
+
+  // Mobile/Tablet: render as overlay
+  if (isMobileOrTablet) {
+    return (
+      <>
+        {/* Backdrop */}
+        <div
+          className={cn(
+            'fixed inset-0 z-40 bg-background/80 backdrop-blur-sm transition-opacity duration-300',
+            isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          )}
+          onClick={onToggle}
+        />
+        {/* Sidebar slides in from left */}
+        <div
+          className={cn(
+            'transition-transform duration-300 ease-out',
+            isOpen ? 'translate-x-0' : '-translate-x-full'
+          )}
+        >
+          {sidebarContent}
+        </div>
+      </>
+    );
+  }
+
+  // Desktop: render inline
+  return sidebarContent;
 }

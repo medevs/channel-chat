@@ -1,147 +1,104 @@
-import { useState } from 'react';
-import { Play, X, ExternalLink, Share } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { X, ExternalLink, Share2, Play } from 'lucide-react';
+import type { ActiveVideo } from '@/types/chat';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { VideoSource } from '@/types/chat';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
 
 interface VideoPanelProps {
-  isOpen: boolean;
-  video: VideoSource | null;
-  timestamp?: number;
+  video: ActiveVideo | null;
   onClose: () => void;
-  className?: string;
 }
 
-export function VideoPanel({ 
-  isOpen, 
-  video, 
-  timestamp, 
-  onClose, 
-  className 
-}: VideoPanelProps) {
-  const [isLoading, setIsLoading] = useState(true);
+export function VideoPanel({ video, onClose }: VideoPanelProps) {
+  const breakpoint = useBreakpoint();
+  const isMobile = breakpoint === 'mobile';
 
   if (!video) return null;
 
-  const getYouTubeEmbedUrl = () => {
-    if (!video.url) return '';
-    
-    // Extract video ID from various YouTube URL formats
-    const videoId = video.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/)?.[1];
-    if (!videoId) return '';
+  // Ensure timestampSeconds is a valid integer for YouTube's start parameter
+  const startSeconds = video.timestampSeconds && !isNaN(video.timestampSeconds) 
+    ? Math.floor(video.timestampSeconds) 
+    : 0;
+  const embedUrl = `https://www.youtube.com/embed/${video.videoId}?start=${startSeconds}&autoplay=1`;
 
-    const startTime = timestamp ? `&start=${Math.floor(timestamp)}` : '';
-    return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0${startTime}`;
-  };
-
-  const formatTimestamp = (seconds?: number) => {
-    if (!seconds) return null;
-    
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
-
-  const panelContent = (
-    <div className="h-full flex flex-col bg-background">
+  const content = (
+    <div
+      className={cn(
+        'bg-video-panel flex flex-col h-full',
+        isMobile ? 'fixed inset-0 z-50' : 'w-full max-w-[380px] lg:max-w-[420px] border-l border-border'
+      )}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-video-panel-muted shrink-0">
         <div className="flex items-center gap-2">
-          <Play className="w-4 h-4 text-primary" />
-          <span className="font-medium text-foreground">Video Player</span>
+          <div className="w-8 h-8 rounded-lg bg-video-panel-accent/20 flex items-center justify-center">
+            <Play className="w-4 h-4 text-video-panel-accent ml-0.5" />
+          </div>
+          <span className="font-display font-medium text-sm text-video-panel-foreground">Video Player</span>
         </div>
         <Button
           variant="ghost"
-          size="sm"
+          size="icon"
           onClick={onClose}
-          className="text-muted-foreground hover:text-foreground"
+          className="h-8 w-8 rounded-lg text-video-panel-foreground/70 hover:text-video-panel-foreground hover:bg-video-panel-muted"
         >
           <X className="w-4 h-4" />
         </Button>
+      </header>
+
+      {/* Video */}
+      <div className="aspect-video w-full bg-black shrink-0">
+        <iframe
+          src={embedUrl}
+          title={video.title}
+          className="w-full h-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
       </div>
 
-      {/* Video Embed */}
-      <div className="relative bg-black">
-        <div className="aspect-video">
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-muted">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
-          <iframe
-            src={getYouTubeEmbedUrl()}
-            title={video.title}
-            className="w-full h-full"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            onLoad={() => setIsLoading(false)}
-          />
-        </div>
-      </div>
-
-      {/* Video Info */}
-      <div className="flex-1 p-4 space-y-4">
+      {/* Info */}
+      <div className="flex-1 p-4 space-y-4 overflow-y-auto">
         <div>
-          <h3 className="font-bold text-foreground text-lg leading-tight mb-2">
+          <h4 className="font-display font-semibold text-video-panel-foreground text-base md:text-lg leading-tight mb-2">
             {video.title}
-          </h3>
-          <p className="text-muted-foreground">Creator</p>
+          </h4>
+          <p className="text-sm text-video-panel-foreground/60">{video.creatorName}</p>
         </div>
 
-        {/* Playing Badge */}
-        {timestamp && (
-          <Badge className="bg-primary/20 text-primary border-primary/30">
-            <div className="w-2 h-2 bg-primary rounded-full animate-pulse mr-2" />
-            Playing from {formatTimestamp(timestamp)}
-          </Badge>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-2 pt-4">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onClick={() => window.open(video.url, '_blank')}
-          >
-            <ExternalLink className="w-4 h-4 mr-2" />
-            Watch Full Video
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-          >
-            <Share className="w-4 h-4" />
-          </Button>
-        </div>
+        <Badge className="bg-video-panel-accent/20 text-video-panel-accent border-0 gap-2 py-1.5 px-3">
+          <span className="w-2 h-2 rounded-full bg-video-panel-accent animate-pulse" />
+          <span className="font-medium text-xs">Playing from {video.timestamp}</span>
+        </Badge>
       </div>
+
+      {/* Actions */}
+      <footer className="p-4 border-t border-video-panel-muted flex gap-2 shrink-0 safe-bottom">
+        <Button
+          variant="secondary"
+          className="flex-1 h-11 rounded-xl bg-video-panel-muted text-video-panel-foreground hover:bg-video-panel-muted/80 text-xs md:text-sm"
+          onClick={() => window.open(`https://youtube.com/watch?v=${video.videoId}&t=${startSeconds}`, '_blank')}
+        >
+          <ExternalLink className="w-4 h-4 mr-2" />
+          Watch Full Video
+        </Button>
+        <Button className="h-11 rounded-xl bg-video-panel-accent hover:bg-video-panel-accent/90 text-xs md:text-sm px-5">
+          <Share2 className="w-4 h-4 mr-2" />
+          Share
+        </Button>
+      </footer>
     </div>
   );
 
-  return (
-    <>
-      {/* Mobile Sheet */}
-      <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent 
-          side="bottom" 
-          className="h-[90vh] p-0 bg-background border-border lg:hidden"
-        >
-          {panelContent}
-        </SheetContent>
-      </Sheet>
+  if (isMobile) {
+    return (
+      <>
+        <div className="fixed inset-0 bg-foreground/30 backdrop-blur-sm z-40 animate-fade-in" onClick={onClose} />
+        <div className="animate-slide-up">{content}</div>
+      </>
+    );
+  }
 
-      {/* Desktop Panel */}
-      <div
-        className={cn(
-          "hidden lg:flex flex-col w-96 border-l border-border transition-all duration-300",
-          isOpen ? "translate-x-0" : "translate-x-full",
-          className
-        )}
-      >
-        {isOpen && panelContent}
-      </div>
-    </>
-  );
+  return content;
 }
