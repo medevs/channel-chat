@@ -366,6 +366,25 @@ serve(async (req) => {
     
     console.log(`Embedding generation complete: ${JSON.stringify(results)}`);
     
+    // Check if all embeddings are complete and update channel status
+    if (results.processed > 0 && channel_id) {
+      const { data: completionCheck } = await supabase
+        .from('transcript_chunks')
+        .select('id')
+        .eq('channel_id', channel_id)
+        .eq('embedding_status', 'completed')
+        .limit(1);
+
+      if (completionCheck && completionCheck.length > 0) {
+        console.log(`Updating channel ${channel_id} status to completed`);
+        await supabase.from('channels').update({
+          ingestion_status: 'completed',
+          ingestion_progress: 100,
+          last_indexed_at: new Date().toISOString(),
+        }).eq('channel_id', channel_id);
+      }
+    }
+    
     return new Response(JSON.stringify({
       success: true,
       results,
