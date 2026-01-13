@@ -75,6 +75,52 @@ pnpm run dev &
 **Database**: SQL-first approach with typed database functions
 **API**: RESTful patterns for Supabase integration, typed responses
 
+## Bug Fixing Methodology
+**CRITICAL: Always Fix Root Causes, Never Patch Symptoms**
+
+### Root Cause Analysis Process
+1. **Identify the Symptom**: What is the user experiencing?
+2. **Trace the Data Flow**: Follow the data from source to display
+3. **Find the Source**: Where is the incorrect data being generated?
+4. **Fix the Logic**: Correct the business logic that creates the problem
+5. **Verify Systematically**: Test that the fix works for all cases
+
+### Anti-Patterns to Avoid
+❌ **Never do these**:
+- Manually updating database records to "fix" display issues
+- Adding UI-level workarounds for backend logic problems
+- Patching individual cases instead of fixing the underlying system
+- Making temporary fixes that will break with new data
+- Assuming the problem is in the display layer when it's in the data layer
+
+### Correct Approach
+✅ **Always do this**:
+- Fix the function/logic that generates incorrect data
+- Update the business logic to handle edge cases properly
+- Ensure the fix works for all existing and future data
+- Test the fix with multiple scenarios and edge cases
+- Verify that similar issues don't exist elsewhere in the codebase
+
+### Example: Video Count Bug
+❌ **Wrong**: `UPDATE channels SET indexed_videos = 5 WHERE id = 'specific-id'`
+✅ **Right**: Fix the ingestion function to count actual videos after upsert operations
+
+### Debugging Workflow
+1. **Reproduce the Issue**: Understand exactly what's happening
+2. **Check the Database**: What does the actual data look like?
+3. **Trace the Code Path**: Follow the logic that creates/updates this data
+4. **Identify the Bug**: Find where the logic is incorrect
+5. **Fix the Logic**: Update the code to handle the case properly
+6. **Test Thoroughly**: Verify the fix works for all scenarios
+7. **Deploy and Verify**: Confirm the fix works in production
+
+### Data Integrity Principles
+- Database should always reflect reality
+- Business logic should create correct data from the start
+- Display layers should show what's actually in the database
+- Fixes should prevent the problem from recurring
+- All similar patterns in the codebase should be reviewed and fixed
+
 ## Testing Strategy
 **Unit Tests**: Utilities, chunking algorithms, prompt construction logic
 **Integration Tests**: Supabase Edge Functions, database operations, external API interactions
