@@ -4,6 +4,7 @@ import { useCreators } from '@/hooks/useCreators';
 import { AppSidebar } from '@/components/chat/AppSidebar';
 import { ChatArea } from '@/components/chat/ChatArea';
 import { VideoPanel } from '@/components/chat/VideoPanel';
+import { SavedAnswers } from '@/components/chat/SavedAnswers';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { Button } from '@/components/ui/button';
 import { Menu, Loader2 } from 'lucide-react';
@@ -171,9 +172,10 @@ export function Chat() {
                 <p className="text-muted-foreground">Settings page coming soon...</p>
               </div>
             ) : showSaved ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">Saved answers coming soon...</p>
-              </div>
+              <SavedAnswers 
+                onBack={handleCloseSaved}
+                onTimestampClick={handleTimestampClick}
+              />
             ) : (
               <ChatArea
                 activeCreator={activeCreator}

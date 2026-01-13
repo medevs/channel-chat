@@ -371,9 +371,9 @@ export function ChatArea({
                   )}
                 >
                   {message.type === 'ai' && (
-                    <Avatar className="w-7 h-7 md:w-8 md:h-8 shrink-0 mt-0.5">
+                    <Avatar className="w-7 h-7 md:w-8 md:h-8 shrink-0 mt-0.5 ring-2 ring-primary/10">
                       <AvatarImage src={activeCreator.avatarUrl || undefined} alt={activeCreator.name} />
-                      <AvatarFallback className="text-2xs">{activeCreator.name.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="text-2xs bg-primary/10 text-primary font-display">{activeCreator.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                   )}
                   <div className={cn('max-w-[85%] md:max-w-[75%] space-y-3', message.type === 'user' && 'items-end')}>
@@ -487,15 +487,20 @@ export function ChatArea({
                       </div>
                     )}
                   </div>
+                  {message.type === 'user' && (
+                    <Avatar className="w-7 h-7 md:w-8 md:h-8 shrink-0 mt-0.5 ring-2 ring-primary/10">
+                      <AvatarFallback className="text-2xs bg-primary/10 text-primary font-display">U</AvatarFallback>
+                    </Avatar>
+                  )}
                 </div>
               ))}
 
               {/* Typing indicator */}
               {isTyping && (
                 <div className="flex gap-2.5 md:gap-3 justify-start animate-fade-in">
-                  <Avatar className="w-7 h-7 md:w-8 md:h-8 shrink-0 mt-0.5">
+                  <Avatar className="w-7 h-7 md:w-8 md:h-8 shrink-0 mt-0.5 ring-2 ring-primary/10">
                     <AvatarImage src={activeCreator.avatarUrl || undefined} alt={activeCreator.name} />
-                    <AvatarFallback className="text-2xs">{activeCreator.name.charAt(0)}</AvatarFallback>
+                    <AvatarFallback className="text-2xs bg-primary/10 text-primary font-display">{activeCreator.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div className="bg-chat-bubble-ai text-chat-bubble-ai-foreground rounded-2xl rounded-bl-md px-4 py-3">
                     <div className="flex items-center gap-2">
