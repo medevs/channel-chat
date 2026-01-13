@@ -10,7 +10,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY')!;
 
-// Parse channel URL (inline from working implementation)
+// Parse channel URL
 function parseChannelUrl(url: string): { type: 'channel' | 'custom' | 'user' | 'handle'; id: string } | null {
   try {
     const urlObj = new URL(url);
@@ -34,7 +34,7 @@ function parseChannelUrl(url: string): { type: 'channel' | 'custom' | 'user' | '
   }
 }
 
-// Resolve channel ID using YouTube API (inline from working implementation)
+// Resolve channel ID using YouTube API
 async function resolveChannelId(parsedUrl: { type: string; id: string }, apiKey: string) {
   let endpoint = '';
   
@@ -60,9 +60,6 @@ async function resolveChannelId(parsedUrl: { type: string; id: string }, apiKey:
 
   if (data.error) {
     console.error('YouTube API error:', data.error);
-    if (data.error.errors?.[0]?.reason === 'quotaExceeded') {
-      throw new Error('QUOTA_EXCEEDED');
-    }
     throw new Error(data.error.message);
   }
 
@@ -77,24 +74,33 @@ async function resolveChannelId(parsedUrl: { type: string; id: string }, apiKey:
     avatar_url: channel.snippet.thumbnails?.high?.url || channel.snippet.thumbnails?.default?.url || '',
     subscriber_count: channel.statistics?.subscriberCount || '0',
     uploads_playlist_id: channel.contentDetails?.relatedPlaylists?.uploads || '',
+    total_video_count: parseInt(channel.statistics?.videoCount || '0', 10),
   };
 }
 
-// Fetch video IDs from playlist (inline from working implementation)
-async function fetchPlaylistVideoIds(playlistId: string, apiKey: string, maxVideos: number = 10): Promise<string[]> {
+// Fetch video IDs with optional date filter for refresh
+async function fetchPlaylistVideoIds(
+  playlistId: string, 
+  apiKey: string, 
+  maxVideos: number = 10, 
+  publishedAfter?: string
+): Promise<string[]> {
   const videoIds: string[] = [];
   let nextPageToken = '';
   
   while (videoIds.length < maxVideos) {
-    const endpoint = `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails,snippet&playlistId=${playlistId}&maxResults=50&pageToken=${nextPageToken}&key=${apiKey}`;
+    let endpoint = `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails,snippet&playlistId=${playlistId}&maxResults=50&pageToken=${nextPageToken}&key=${apiKey}`;
+    
+    // Add date filter for refresh mode
+    if (publishedAfter) {
+      endpoint += `&publishedAfter=${publishedAfter}`;
+    }
+    
     const response = await fetch(endpoint);
     const data = await response.json();
 
     if (data.error) {
       console.error('YouTube API error:', data.error);
-      if (data.error.errors?.[0]?.reason === 'quotaExceeded') {
-        throw new Error('QUOTA_EXCEEDED');
-      }
       throw new Error(data.error.message);
     }
 
@@ -124,9 +130,9 @@ function parseDuration(duration: string): number {
   return hours * 3600 + minutes * 60 + seconds;
 }
 
-// Fetch video metadata (inline from working implementation)
+// Fetch video metadata
 async function fetchVideoMetadata(videoIds: string[], apiKey: string) {
-  const videos: unknown[] = [];
+  const videos: any[] = [];
   const batchSize = 50;
 
   for (let i = 0; i < videoIds.length; i += batchSize) {
@@ -138,9 +144,6 @@ async function fetchVideoMetadata(videoIds: string[], apiKey: string) {
     const data = await response.json();
 
     if (data.error) {
-      if (data.error.errors?.[0]?.reason === 'quotaExceeded') {
-        throw new Error('QUOTA_EXCEEDED');
-      }
       throw new Error(data.error.message);
     }
 
@@ -168,160 +171,6 @@ async function fetchVideoMetadata(videoIds: string[], apiKey: string) {
   return videos;
 }
 
-// Background video processing function
-async function processVideosInBackground(
-  supabase: any,
-  channelInfo: any,
-  channel: any,
-  actualVideoLimit: number,
-  apiKey: string,
-  userId?: string
-) {
-  try {
-    console.log('Starting background video processing for channel:', channelInfo.channel_id);
-
-    // Fetch video IDs from uploads playlist
-    if (!channelInfo.uploads_playlist_id) {
-      console.error('Channel uploads playlist not found');
-      return;
-    }
-
-    console.log('Fetching video IDs from playlist:', channelInfo.uploads_playlist_id);
-    const videoIds = await fetchPlaylistVideoIds(channelInfo.uploads_playlist_id, apiKey, actualVideoLimit);
-    console.log(`Fetched ${videoIds.length} video IDs`);
-
-    if (videoIds.length === 0) {
-      // Update channel status to completed with no videos
-      await supabase
-        .from('channels')
-        .update({
-          ingestion_status: 'completed',
-          ingestion_progress: 100,
-          indexed_videos: 0,
-          total_videos: 0,
-        })
-        .eq('id', channel.id);
-      return;
-    }
-
-    // Fetch video metadata
-    console.log('Fetching video metadata...');
-    const videos = await fetchVideoMetadata(videoIds, apiKey);
-    console.log(`Fetched metadata for ${videos.length} videos`);
-
-    // Insert videos into database
-    const videosToInsert = videos.map(video => ({
-      video_id: video.video_id,
-      channel_id: channelInfo.channel_id,
-      title: video.title,
-      description: video.description,
-      published_at: video.published_at,
-      duration: video.duration,
-      duration_seconds: video.duration_seconds,
-      thumbnail_url: video.thumbnail_url,
-      view_count: video.view_count,
-      like_count: video.like_count,
-      live_broadcast_content: video.live_broadcast_content,
-      has_live_streaming_details: video.has_live_streaming_details,
-    }));
-
-    console.log('Inserting videos into database:', videosToInsert.length);
-
-    const { error: videoError } = await supabase
-      .from('videos')
-      .upsert(videosToInsert, { onConflict: 'video_id' });
-    
-    if (videoError) {
-      console.error('Video insert error:', videoError);
-      throw videoError;
-    }
-
-    // Increment videos indexed count for user if userId provided
-    if (userId && videos.length > 0) {
-      console.log('Incrementing videos indexed for user:', userId, 'count:', videos.length);
-      const { error: videosCountError } = await supabase.rpc('increment_videos_indexed', { 
-        p_user_id: userId, 
-        p_count: videos.length 
-      });
-      if (videosCountError) {
-        console.error('Error incrementing videos count:', videosCountError);
-      }
-    }
-
-    // Update channel with completion status
-    const { error: finalUpdateError } = await supabase
-      .from('channels')
-      .update({
-        ingestion_status: 'completed',
-        ingestion_progress: 100,
-        indexed_videos: videos.length,
-        total_videos: videos.length,
-      })
-      .eq('id', channel.id);
-
-    if (finalUpdateError) {
-      console.error('Final update error:', finalUpdateError);
-    }
-
-    // Trigger automatic pipeline processing
-    if (videos.length > 0) {
-      console.log('Triggering automatic pipeline processing for channel:', channelInfo.channel_id);
-      
-      try {
-        // Step 1: Trigger transcript extraction
-        console.log('Invoking extract-transcripts function...');
-        const { error: extractError } = await supabase.functions.invoke('extract-transcripts', {
-          body: { channelId: channelInfo.channel_id },
-          headers: {
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (extractError) {
-          console.error('Error triggering transcript extraction:', extractError);
-        } else {
-          console.log('Transcript extraction triggered successfully');
-          
-          // Step 2: Trigger embedding generation
-          console.log('Invoking run-pipeline function...');
-          const { error: pipelineError } = await supabase.functions.invoke('run-pipeline', {
-            body: { 
-              channel_id: channelInfo.channel_id,
-              process_all: true 
-            },
-            headers: {
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (pipelineError) {
-            console.error('Error triggering pipeline:', pipelineError);
-          } else {
-            console.log('Pipeline triggered successfully');
-          }
-        }
-      } catch (pipelineError) {
-        console.error('Pipeline trigger failed:', pipelineError);
-      }
-    }
-
-    console.log('Background video processing completed for channel:', channelInfo.channel_id);
-  } catch (error) {
-    console.error('Background processing error:', error);
-    
-    // Update channel status to error
-    await supabase
-      .from('channels')
-      .update({
-        ingestion_status: 'error',
-        ingestion_progress: 0,
-      })
-      .eq('id', channel.id);
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -330,16 +179,9 @@ serve(async (req) => {
   try {
     console.log('Ingestion function called');
     
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !YOUTUBE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'Supabase configuration missing', success: false }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    if (!YOUTUBE_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: 'YouTube API key not configured', success: false }),
+        JSON.stringify({ error: 'Configuration missing', success: false }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -347,21 +189,166 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     const body = await req.json();
-    const { channelUrl, userId, videoLimit = 5, importSettings, returnImmediately = false } = body;
+    const { 
+      channelUrl, 
+      userId, 
+      refresh = false,
+      channelId: existingChannelId,
+      videoLimit = 20, // Increased default limit 
+      importSettings, 
+      returnImmediately = false
+    } = body;
     
-    // Use importSettings.limit if provided, otherwise fall back to videoLimit
-    const actualVideoLimit = importSettings?.limit || videoLimit;
+    const isRefresh = refresh === true && existingChannelId;
     
-    console.log('Request body:', { channelUrl, userId, videoLimit, actualVideoLimit });
+    // For existing channels, check their import limit setting
+    let actualVideoLimit = importSettings?.limit || videoLimit;
+    
+    console.log('Request:', { channelUrl, userId, isRefresh, existingChannelId, actualVideoLimit });
 
-    if (!channelUrl) {
+    if (!channelUrl && !isRefresh) {
       return new Response(
         JSON.stringify({ error: 'Channel URL is required', success: false }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse channel URL
+    let channelInfo;
+    let existingChannel;
+
+    if (isRefresh) {
+      // For refresh, get existing channel data
+      const { data: channel, error: selectError } = await supabase
+        .from('channels')
+        .select('*')
+        .eq('id', existingChannelId)
+        .single();
+
+      if (selectError || !channel) {
+        return new Response(
+          JSON.stringify({ error: 'Channel not found for refresh', success: false }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      existingChannel = channel;
+      
+      // Use channel's import limit if set
+      if (channel.video_import_limit && !importSettings?.limit) {
+        actualVideoLimit = channel.video_import_limit;
+      }
+      
+      // Get updated channel info from YouTube API
+      const parsedUrl = { type: 'channel', id: channel.channel_id };
+      channelInfo = await resolveChannelId(parsedUrl, YOUTUBE_API_KEY);
+      
+      if (!channelInfo) {
+        return new Response(
+          JSON.stringify({ error: 'Channel not found on YouTube', success: false }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check for new videos since last_indexed_at
+      let publishedAfter;
+      if (channel.last_indexed_at) {
+        publishedAfter = new Date(channel.last_indexed_at).toISOString();
+        console.log('Refresh mode: filtering videos published after', publishedAfter);
+      }
+
+      const videoIds = await fetchPlaylistVideoIds(
+        channelInfo.uploads_playlist_id, 
+        YOUTUBE_API_KEY, 
+        actualVideoLimit,
+        publishedAfter
+      );
+
+      // If refresh and no new videos, return up-to-date status
+      if (videoIds.length === 0) {
+        console.log('Channel is up to date, no new videos');
+        return new Response(
+          JSON.stringify({
+            success: true,
+            up_to_date: true,
+            channel: {
+              id: existingChannel.id,
+              channel_id: existingChannel.channel_id,
+              channel_name: existingChannel.channel_name,
+              avatar_url: existingChannel.avatar_url,
+              subscriber_count: existingChannel.subscriber_count,
+              indexed_videos: existingChannel.indexed_videos,
+              total_videos: existingChannel.total_videos,
+              ingestion_status: existingChannel.ingestion_status,
+              last_indexed_at: existingChannel.last_indexed_at,
+            },
+            message: 'Creator is up to date. No new videos found.',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Process new videos
+      const videos = await fetchVideoMetadata(videoIds, YOUTUBE_API_KEY);
+      
+      // Insert new videos
+      const videosToInsert = videos.map(video => ({
+        video_id: video.video_id,
+        channel_id: channelInfo.channel_id,
+        title: video.title,
+        description: video.description,
+        published_at: video.published_at,
+        duration: video.duration,
+        duration_seconds: video.duration_seconds,
+        thumbnail_url: video.thumbnail_url,
+        view_count: video.view_count,
+        like_count: video.like_count,
+        live_broadcast_content: video.live_broadcast_content,
+        has_live_streaming_details: video.has_live_streaming_details,
+      }));
+
+      await supabase
+        .from('videos')
+        .upsert(videosToInsert, { onConflict: 'video_id' });
+
+      // Count actual videos in database after upsert
+      const { count: actualVideoCount } = await supabase
+        .from('videos')
+        .select('*', { count: 'exact', head: true })
+        .eq('channel_id', channelInfo.channel_id);
+
+      // Update channel
+      await supabase
+        .from('channels')
+        .update({
+          last_indexed_at: new Date().toISOString(),
+          indexed_videos: actualVideoCount || 0,
+          total_videos: channelInfo.total_video_count,
+        })
+        .eq('id', existingChannel.id);
+
+      // Return success with new video count
+      return new Response(
+        JSON.stringify({
+          success: true,
+          new_videos_count: videos.length,
+          channel: {
+            id: existingChannel.id,
+            channel_id: existingChannel.channel_id,
+            channel_name: existingChannel.channel_name,
+            avatar_url: existingChannel.avatar_url,
+            subscriber_count: existingChannel.subscriber_count,
+            indexed_videos: actualVideoCount || 0,
+            total_videos: channelInfo.total_video_count,
+            ingestion_status: 'processing',
+            last_indexed_at: new Date().toISOString(),
+          },
+          message: `Found ${videos.length} new videos. Processing transcripts...`,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Regular ingestion flow (non-refresh)
     const parsedUrl = parseChannelUrl(channelUrl);
     if (!parsedUrl) {
       return new Response(
@@ -370,10 +357,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Parsed channel URL:', parsedUrl);
-
-    // Resolve channel information using YouTube API
-    const channelInfo = await resolveChannelId(parsedUrl, YOUTUBE_API_KEY);
+    channelInfo = await resolveChannelId(parsedUrl, YOUTUBE_API_KEY);
     if (!channelInfo) {
       return new Response(
         JSON.stringify({ error: 'Channel not found', success: false }),
@@ -381,20 +365,16 @@ serve(async (req) => {
       );
     }
 
-    console.log('Resolved channel info:', channelInfo);
-
     // Check if channel already exists
-    const { data: existingChannel, error: selectError } = await supabase
+    const { data: existing, error: selectError } = await supabase
       .from('channels')
       .select('*')
       .eq('channel_id', channelInfo.channel_id)
       .single();
 
-    console.log('Existing channel check:', { existingChannel, selectError });
-
     let channel;
-    if (existingChannel) {
-      console.log('Channel already exists, updating...');
+    if (existing) {
+      // Update existing channel
       const { data: updatedChannel, error: updateError } = await supabase
         .from('channels')
         .update({
@@ -410,13 +390,10 @@ serve(async (req) => {
         .select()
         .single();
       
-      if (updateError) {
-        console.error('Update error:', updateError);
-        throw updateError;
-      }
+      if (updateError) throw updateError;
       channel = updatedChannel;
     } else {
-      console.log('Creating new channel...');
+      // Create new channel
       const { data: newChannel, error: insertError } = await supabase
         .from('channels')
         .insert({
@@ -435,92 +412,24 @@ serve(async (req) => {
         .select()
         .single();
       
-      if (insertError) {
-        console.error('Insert error:', insertError);
-        throw insertError;
-      }
+      if (insertError) throw insertError;
       channel = newChannel;
     }
 
-    console.log('Channel created/updated:', channel);
-
     // Link user to channel if userId provided
     if (userId) {
-      console.log('Linking user to channel:', { userId, channelId: channel.id });
-      const { error: linkError } = await supabase
+      await supabase
         .from('user_creators')
         .upsert({
           user_id: userId,
           channel_id: channel.id,
           created_at: new Date().toISOString(),
         });
-      
-      if (linkError) {
-        console.error('Link error:', linkError);
-        // Don't throw, just log
-      } else {
-        // Increment creator count for successful user association
-        console.log('Incrementing creator count for user:', userId);
-        const { error: creatorCountError } = await supabase.rpc('increment_creator_count', { 
-          p_user_id: userId 
-        });
-        if (creatorCountError) {
-          console.error('Error incrementing creator count:', creatorCountError);
-          // Don't throw, just log
-        }
-      }
     }
 
-    // If returnImmediately is true, return channel data now and process videos in background
-    if (returnImmediately) {
-      console.log('Returning immediately with channel data');
-      
-      // Return complete channel data immediately
-      const immediateResponse = {
-        success: true,
-        message: `Channel ${channelInfo.channel_name} added successfully. Video processing started in background.`,
-        channel: {
-          id: channel.id,
-          channel_id: channelInfo.channel_id,
-          channel_name: channelInfo.channel_name,
-          avatar_url: channelInfo.avatar_url,
-          subscriber_count: channelInfo.subscriber_count,
-          indexed_videos: 0,
-          total_videos: 0,
-          ingestion_status: 'processing',
-          ingestion_progress: 0,
-          last_indexed_at: channel.last_indexed_at,
-          // Include all the fields the frontend expects
-          ingestion_method: 'api',
-          ingest_videos: true,
-          ingest_shorts: false,
-          ingest_lives: false,
-          video_import_mode: importSettings?.mode || 'latest',
-          video_import_limit: actualVideoLimit,
-        }
-      };
-
-      // Start background processing (don't await)
-      processVideosInBackground(supabase, channelInfo, channel, actualVideoLimit, YOUTUBE_API_KEY, userId);
-
-      return new Response(
-        JSON.stringify(immediateResponse),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Fetch video IDs from uploads playlist
-    if (!channelInfo.uploads_playlist_id) {
-      return new Response(
-        JSON.stringify({ error: 'Channel uploads playlist not found', success: false }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log('Fetching video IDs from playlist:', channelInfo.uploads_playlist_id);
+    // Fetch and process videos
     const videoIds = await fetchPlaylistVideoIds(channelInfo.uploads_playlist_id, YOUTUBE_API_KEY, actualVideoLimit);
-    console.log(`Fetched ${videoIds.length} video IDs`);
-
+    
     if (videoIds.length === 0) {
       return new Response(
         JSON.stringify({ 
@@ -535,18 +444,14 @@ serve(async (req) => {
             ingestion_status: 'completed',
             ingestion_progress: 100,
           },
-          videos: [],
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Fetch video metadata
-    console.log('Fetching video metadata...');
     const videos = await fetchVideoMetadata(videoIds, YOUTUBE_API_KEY);
-    console.log(`Fetched metadata for ${videos.length} videos`);
 
-    // Insert videos into database
+    // Insert videos
     const videosToInsert = videos.map(video => ({
       video_id: video.video_id,
       channel_id: channelInfo.channel_id,
@@ -562,142 +467,61 @@ serve(async (req) => {
       has_live_streaming_details: video.has_live_streaming_details,
     }));
 
-    console.log('Inserting videos into database:', videosToInsert.length);
-
-    const { error: videoError } = await supabase
+    await supabase
       .from('videos')
       .upsert(videosToInsert, { onConflict: 'video_id' });
-    
-    if (videoError) {
-      console.error('Video insert error:', videoError);
-      throw videoError;
-    }
 
-    // Increment videos indexed count for user if userId provided
-    if (userId && videos.length > 0) {
-      console.log('Incrementing videos indexed for user:', userId, 'count:', videos.length);
-      const { error: videosCountError } = await supabase.rpc('increment_videos_indexed', { 
-        p_user_id: userId, 
-        p_count: videos.length 
-      });
-      if (videosCountError) {
-        console.error('Error incrementing videos count:', videosCountError);
-        // Don't throw, just log
-      }
-    }
+    // Count actual videos in database after upsert
+    const { count: actualVideoCount } = await supabase
+      .from('videos')
+      .select('*', { count: 'exact', head: true })
+      .eq('channel_id', channelInfo.channel_id);
 
-    // Update channel with completion status
-    const { error: finalUpdateError } = await supabase
+    // Count videos with completed transcripts (ready for chat)
+    const { count: readyVideoCount } = await supabase
+      .from('videos')
+      .select(`
+        video_id,
+        transcripts!inner(extraction_status)
+      `, { count: 'exact', head: true })
+      .eq('channel_id', channelInfo.channel_id)
+      .eq('transcripts.extraction_status', 'completed');
+
+    // Update channel completion status
+    await supabase
       .from('channels')
       .update({
         ingestion_status: 'completed',
         ingestion_progress: 100,
-        indexed_videos: videos.length,
-        total_videos: videos.length,
+        indexed_videos: readyVideoCount || 0, // Count of videos ready for chat
+        total_videos: channelInfo.total_video_count,
       })
       .eq('id', channel.id);
 
-    if (finalUpdateError) {
-      console.error('Final update error:', finalUpdateError);
-      // Don't throw, just log
-    }
-
-    const response = {
-      success: true,
-      message: `Successfully ingested ${videos.length} videos from ${channelInfo.channel_name}`,
-      channel: {
-        id: channel.id,
-        channel_id: channelInfo.channel_id,
-        channel_name: channelInfo.channel_name,
-        indexed_videos: videos.length,
-        total_videos: videos.length,
-        ingestion_status: 'completed',
-        ingestion_progress: 100,
-      },
-      videos: videos.map(v => ({
-        video_id: v.video_id,
-        title: v.title,
-        published_at: v.published_at,
-        duration_seconds: v.duration_seconds,
-      })),
-    };
-
-    // Trigger automatic pipeline processing
-    if (videos.length > 0) {
-      console.log('Triggering automatic pipeline processing for channel:', channelInfo.channel_id);
-      
-      try {
-        // Step 1: Trigger transcript extraction
-        console.log('Invoking extract-transcripts function...');
-        const { error: extractError } = await supabase.functions.invoke('extract-transcripts', {
-          body: { channelId: channelInfo.channel_id },
-          headers: {
-            'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (extractError) {
-          console.error('Error triggering transcript extraction:', extractError);
-        } else {
-          console.log('Transcript extraction triggered successfully');
-          
-          // Step 2: Trigger embedding generation (run after transcript extraction)
-          console.log('Invoking run-pipeline function...');
-          const { error: pipelineError } = await supabase.functions.invoke('run-pipeline', {
-            body: { 
-              channel_id: channelInfo.channel_id,
-              process_all: true 
-            },
-            headers: {
-              'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (pipelineError) {
-            console.error('Error triggering pipeline:', pipelineError);
-          } else {
-            console.log('Pipeline triggered successfully');
-          }
-        }
-      } catch (pipelineError) {
-        console.error('Pipeline trigger failed:', pipelineError);
-        // Don't throw - ingestion was successful, pipeline is bonus
-      }
-    }
-
-    console.log('Returning success response');
-
     return new Response(
-      JSON.stringify(response),
+      JSON.stringify({
+        success: true,
+        message: `Successfully ingested ${videos.length} videos from ${channelInfo.channel_name}`,
+        channel: {
+          id: channel.id,
+          channel_id: channelInfo.channel_id,
+          channel_name: channelInfo.channel_name,
+          indexed_videos: readyVideoCount || 0, // Count of videos ready for chat
+          total_videos: channelInfo.total_video_count,
+          ingestion_status: 'completed',
+          ingestion_progress: 100,
+        },
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
   } catch (error) {
     console.error('Ingestion error:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    console.error('Error message:', error instanceof Error ? error.message : String(error));
-    console.error('Error JSON:', JSON.stringify(error, null, 2));
-    
-    let errorMessage = 'Unknown error';
-    let errorDetails = {};
-    
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      errorDetails = { stack: error.stack };
-    } else if (typeof error === 'object' && error !== null) {
-      errorMessage = error.message || error.error || JSON.stringify(error);
-      errorDetails = error;
-    } else {
-      errorMessage = String(error);
-    }
     
     return new Response(
       JSON.stringify({ 
-        error: errorMessage,
+        error: error instanceof Error ? error.message : 'Unknown error',
         success: false,
-        details: errorDetails,
-        errorType: typeof error
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

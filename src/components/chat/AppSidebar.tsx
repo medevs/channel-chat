@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, Plus, Settings, LogOut, ChevronLeft, X, Loader2, Trash2, MoreVertical, Bookmark } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { MessageSquare, Plus, Settings, LogOut, ChevronLeft, X, Loader2, Trash2, MoreVertical, Bookmark, User, RefreshCw, Share2 } from 'lucide-react';
 import type { Creator } from '@/types/chat';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,8 @@ import { AddCreatorModal } from '@/components/AddCreatorModal';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { useRefreshCreator } from '@/hooks/useRefreshCreator';
+import { supabase } from '@/lib/supabase';
 
 const formatSubscribers = (count: string | null): string => {
   if (!count) return 'Unknown';
@@ -104,6 +107,7 @@ interface AppSidebarProps {
   onSelectCreator: (id: string) => void;
   onAddCreator: (creator: Creator) => void;
   onDeleteCreator: (creatorId: string, channelId: string) => Promise<{ success: boolean; error?: string }>;
+  onUpdateCreator: (creator: Creator) => void;
   onOpenSettings: () => void;
   onOpenSaved: () => void;
   showSaved?: boolean;
@@ -119,6 +123,7 @@ export function AppSidebar({
   onSelectCreator,
   onAddCreator,
   onDeleteCreator,
+  onUpdateCreator,
   onOpenSettings,
   onOpenSaved,
   showSaved,
@@ -127,11 +132,64 @@ export function AppSidebar({
   isMobile,
   isTablet,
 }: AppSidebarProps) {
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { refreshCreator, isRefreshing } = useRefreshCreator(onUpdateCreator);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isCollapsed = !isOpen && !isMobile;
+
+  const handleViewProfile = useCallback((e: React.MouseEvent, creatorId: string) => {
+    e.stopPropagation();
+    navigate(`/creator/${creatorId}`);
+    if (isMobile || isTablet) onToggle();
+  }, [navigate, isMobile, isTablet, onToggle]);
+
+  const handleRefreshCreator = useCallback(async (e: React.MouseEvent, creator: Creator) => {
+    e.stopPropagation();
+    await refreshCreator(creator.id);
+  }, [refreshCreator]);
+
+  const handleShareCreator = useCallback(async (e: React.MouseEvent, creator: Creator) => {
+    e.stopPropagation();
+    
+    // Generate slug if it doesn't exist
+    let slug = creator.publicSlug;
+    
+    if (!slug) {
+      // Generate a URL-friendly slug from the channel name
+      slug = creator.name
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .substring(0, 50);
+      
+      // Add random suffix to ensure uniqueness
+      slug = `${slug}-${Math.random().toString(36).substring(2, 6)}`;
+      
+      // Save the slug to the database
+      const { error } = await supabase
+        .from('channels')
+        .update({ public_slug: slug })
+        .eq('id', creator.id);
+      
+      if (error) {
+        console.error('Error setting public slug:', error);
+        toast.error('Failed to create share link');
+        return;
+      }
+    }
+    
+    const shareUrl = `${window.location.origin}/creator/${slug}`;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Share link copied to clipboard!');
+    } catch {
+      toast.info(`Share link: ${shareUrl}`);
+    }
+  }, []);
 
   const handleLogout = async () => {
     await signOut();
@@ -296,7 +354,7 @@ export function AppSidebar({
                         onClick={(e) => e.stopPropagation()}
                         className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
                       >
-                        {deletingId === creator.id ? (
+                        {deletingId === creator.id || isRefreshing(creator.channelId) ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <MoreVertical className="w-3.5 h-3.5" />
@@ -304,6 +362,21 @@ export function AppSidebar({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={(e) => handleViewProfile(e as unknown as React.MouseEvent, creator.id)}>
+                        <User className="w-4 h-4 mr-2" />
+                        View Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={(e) => handleShareCreator(e as unknown as React.MouseEvent, creator)}>
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Share Link
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={(e) => handleRefreshCreator(e as unknown as React.MouseEvent, creator)}
+                        disabled={isRefreshing(creator.id)}
+                      >
+                        <RefreshCw className={cn("w-4 h-4 mr-2", isRefreshing(creator.id) && "animate-spin")} />
+                        Refresh Videos
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
                         onClick={(e) => handleDeleteCreator(e as unknown as React.MouseEvent, creator)}

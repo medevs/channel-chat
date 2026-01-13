@@ -341,8 +341,8 @@ serve(async (req) => {
     let errorMessage: string | null = null;
     
     if (stats.completed > 0) {
-      // At least some videos have captions - ready for Layer 2
-      finalStatus = 'extracting';
+      // At least some videos have captions - completed extraction
+      finalStatus = 'completed';
     } else if (stats.no_captions === videos.length) {
       // All videos have no captions - this is a data limitation
       finalStatus = 'no_captions';

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Landing } from "@/pages/Landing";
 import { Auth } from "@/pages/Auth";
 import { Chat } from "@/pages/Chat";
+import CreatorProfile from "@/pages/CreatorProfile";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute, AuthenticatedRoute } from "@/components";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,6 +38,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Chat />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/creator/:creatorId" 
+                element={
+                  <ProtectedRoute>
+                    <CreatorProfile />
                   </ProtectedRoute>
                 } 
               />

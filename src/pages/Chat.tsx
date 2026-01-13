@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Menu, Loader2 } from 'lucide-react';
 
 export function Chat() {
-  const { creators, isLoading: creatorsLoading, error: creatorsError, addCreator, deleteCreator } = useCreators();
+  const { creators, isLoading: creatorsLoading, error: creatorsError, addCreator, deleteCreator, updateCreator } = useCreators();
   
   const [activeCreatorId, setActiveCreatorId] = useState<string | null>(null);
   const [activeVideo, setActiveVideo] = useState<ActiveVideo | null>(null);
@@ -155,6 +155,7 @@ export function Chat() {
         onSelectCreator={handleSelectCreator}
         onAddCreator={handleAddCreator}
         onDeleteCreator={handleDeleteCreator}
+        onUpdateCreator={updateCreator}
         onOpenSettings={handleOpenSettings}
         onOpenSaved={handleOpenSaved}
         showSaved={showSaved}
