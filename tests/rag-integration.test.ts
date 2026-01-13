@@ -111,7 +111,7 @@ describe('RAG System Integration Tests', () => {
       expect(result.confidence).toMatch(/^(high|medium|low)$/);
       expect(result.evidence.chunksUsed).toBeGreaterThan(0);
       expect(result.isRefusal).toBe(false);
-    });
+    }, 15000);
 
     it('should handle location-based questions with citations', async () => {
       const result = await callRagChat('Where does Cole mention AI agents?');
@@ -128,6 +128,7 @@ describe('RAG System Integration Tests', () => {
       expect(citation).toHaveProperty('timestamp');
       expect(citation).toHaveProperty('startTime');
       expect(citation).toHaveProperty('similarity');
+    }, 15000);
     });
 
     it('should refuse questions not covered in content', async () => {

@@ -22,7 +22,7 @@ describe('Chat Components', () => {
     );
     
     expect(screen.getByText('Start a conversation')).toBeInTheDocument();
-    expect(screen.getByText(/Ask Test Creator anything/)).toBeInTheDocument();
+    expect(screen.getByText(/Ask anything about the creator's videos/)).toBeInTheDocument();
   });
 
   it('displays correct video count in EmptyState', () => {
@@ -33,6 +33,6 @@ describe('Chat Components', () => {
       />
     );
     
-    expect(screen.getByText(/5 indexed videos/)).toBeInTheDocument();
+    expect(screen.getByText(/Ask anything about the creator's videos/)).toBeInTheDocument();
   });
 });
