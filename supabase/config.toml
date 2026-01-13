@@ -398,3 +398,6 @@ verify_jwt = false
 
 [functions.test-function]
 verify_jwt = false
+
+[functions.retry-video-processing]
+verify_jwt = false

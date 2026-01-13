@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Calendar, Video, FileText, Clock, Play, Film, Radio, AlertCircle, CheckCircle, Loader2, XCircle } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Calendar, Video, FileText, Clock, Play, Film, Radio, AlertCircle, CheckCircle, Loader2, XCircle, MessageCircle, RotateCcw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 interface CreatorData {
   id: string;
@@ -55,6 +56,7 @@ export default function CreatorProfile() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const [retryingVideoId, setRetryingVideoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -127,23 +129,13 @@ export default function CreatorProfile() {
             duration,
             duration_seconds,
             thumbnail_url,
-            ingestion_method
+            ingestion_method,
+            transcript_status
           `)
           .eq('channel_id', channelData.channel_id)
           .order('published_at', { ascending: false });
 
         if (videosError) throw videosError;
-
-        // Fetch transcript statuses for these videos
-        const videoIds = videosData?.map(v => v.video_id) || [];
-        const { data: transcriptsData } = await supabase
-          .from('transcripts')
-          .select('video_id, extraction_status')
-          .in('video_id', videoIds);
-
-        const transcriptMap = new Map(
-          transcriptsData?.map(t => [t.video_id, t.extraction_status]) || []
-        );
 
         setVideos(
           (videosData || []).map(v => ({
@@ -155,8 +147,8 @@ export default function CreatorProfile() {
             durationSeconds: v.duration_seconds,
             thumbnailUrl: v.thumbnail_url,
             ingestionMethod: v.ingestion_method,
-            hasTranscript: transcriptMap.has(v.video_id),
-            transcriptStatus: transcriptMap.get(v.video_id) || null,
+            hasTranscript: v.transcript_status === 'completed',
+            transcriptStatus: v.transcript_status,
           }))
         );
       } catch (err) {
@@ -169,6 +161,94 @@ export default function CreatorProfile() {
 
     fetchCreatorData();
   }, [creatorId, user, authLoading, navigate]);
+
+  const handleChatWithCreator = useCallback(() => {
+    navigate(`/chat?creator=${creatorId}`);
+  }, [navigate, creatorId]);
+
+  const handleRetryVideo = useCallback(async (videoId: string) => {
+    if (!user || retryingVideoId) return;
+    
+    setRetryingVideoId(videoId);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('retry-video-processing', {
+        body: { videoId }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
+
+      console.log('Retry response:', data);
+
+      // Immediately update UI to show processing
+      setVideos(prevVideos => 
+        prevVideos.map(v => 
+          v.videoId === videoId 
+            ? { ...v, transcriptStatus: 'processing', hasTranscript: false }
+            : v
+        )
+      );
+
+      toast.success('Video processing retry initiated');
+      
+      // Poll for status updates every 2 seconds
+      const pollStatus = async () => {
+        try {
+          const { data: videoData } = await supabase
+            .from('videos')
+            .select('transcript_status')
+            .eq('video_id', videoId)
+            .single();
+
+          if (videoData) {
+            const isCompleted = videoData.transcript_status === 'completed';
+            const isFailed = videoData.transcript_status === 'failed' || videoData.transcript_status === 'no_transcript';
+            
+            setVideos(prevVideos => 
+              prevVideos.map(v => 
+                v.videoId === videoId 
+                  ? { 
+                      ...v, 
+                      transcriptStatus: videoData.transcript_status,
+                      hasTranscript: isCompleted
+                    }
+                  : v
+              )
+            );
+
+            // Stop polling and clear loading state if completed or failed
+            if (isCompleted || isFailed) {
+              setRetryingVideoId(null);
+              if (isCompleted) {
+                toast.success('Video transcript extracted successfully!');
+              } else if (isFailed) {
+                toast.error('Video processing failed - no transcript available');
+              }
+              return;
+            }
+          }
+
+          // Continue polling if still processing
+          setTimeout(pollStatus, 2000);
+        } catch (pollError) {
+          console.error('Error polling video status:', pollError);
+          setRetryingVideoId(null);
+        }
+      };
+
+      // Start polling after 2 seconds
+      setTimeout(pollStatus, 2000);
+      
+    } catch (err) {
+      console.error('Error retrying video processing:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to retry video processing';
+      toast.error(errorMessage);
+      setRetryingVideoId(null);
+    }
+  }, [user, retryingVideoId]);
 
   const sortedVideos = useMemo(() => {
     return [...videos].sort((a, b) => {
@@ -375,6 +455,15 @@ export default function CreatorProfile() {
                 </a>
               </div>
 
+              <Button 
+                onClick={handleChatWithCreator}
+                className="w-full mt-4"
+                size="sm"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Chat with Creator
+              </Button>
+
               {creator.errorMessage && (
                 <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs">
                   {creator.errorMessage}
@@ -507,8 +596,23 @@ export default function CreatorProfile() {
                         </div>
                       </div>
 
-                      <div className="shrink-0">
+                      <div className="shrink-0 flex items-center gap-2">
                         {getTranscriptBadge(video.hasTranscript, video.transcriptStatus)}
+                        {(video.transcriptStatus === 'failed' || video.transcriptStatus === 'no_transcript' || (!video.hasTranscript && video.transcriptStatus !== 'processing')) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRetryVideo(video.videoId)}
+                            disabled={retryingVideoId === video.videoId}
+                            className="h-6 px-2 text-xs"
+                          >
+                            {retryingVideoId === video.videoId ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-3 h-3" />
+                            )}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );

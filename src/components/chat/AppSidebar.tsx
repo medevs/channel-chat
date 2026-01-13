@@ -148,7 +148,7 @@ export function AppSidebar({
 
   const handleRefreshCreator = useCallback(async (e: React.MouseEvent, creator: Creator) => {
     e.stopPropagation();
-    await refreshCreator(creator.id);
+    await refreshCreator(creator.channelId);
   }, [refreshCreator]);
 
   const handleShareCreator = useCallback(async (e: React.MouseEvent, creator: Creator) => {

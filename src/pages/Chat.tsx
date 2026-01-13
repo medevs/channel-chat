@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { Creator, ActiveVideo } from '@/types/chat';
 import { useCreators } from '@/hooks/useCreators';
 import { AppSidebar } from '@/components/chat/AppSidebar';
@@ -11,6 +12,7 @@ import { Menu, Loader2 } from 'lucide-react';
 
 export function Chat() {
   const { creators, isLoading: creatorsLoading, error: creatorsError, addCreator, deleteCreator, updateCreator } = useCreators();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [activeCreatorId, setActiveCreatorId] = useState<string | null>(null);
   const [activeVideo, setActiveVideo] = useState<ActiveVideo | null>(null);
@@ -23,6 +25,23 @@ export function Chat() {
   const isTablet = breakpoint === 'tablet';
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Handle URL parameter for creator selection
+  useEffect(() => {
+    const creatorParam = searchParams.get('creator');
+    if (creatorParam && creators.length > 0) {
+      const creator = creators.find(c => c.id === creatorParam);
+      if (creator) {
+        setActiveCreatorId(creatorParam);
+        // Clear the URL parameter after setting the creator
+        setSearchParams(prev => {
+          const newParams = new URLSearchParams(prev);
+          newParams.delete('creator');
+          return newParams;
+        });
+      }
+    }
+  }, [creators, searchParams, setSearchParams]);
 
   useEffect(() => {
     if (isMobile || isTablet) {

@@ -34,7 +34,6 @@ export function useCreators() {
             channel_url,
             avatar_url,
             subscriber_count,
-            indexed_videos,
             total_videos,
             ingestion_status,
             ingestion_progress,
@@ -56,6 +55,23 @@ export function useCreators() {
         throw new Error(fetchError.message);
       }
 
+      // Get ready video counts for each channel
+      const channelIds = (data || []).map((row: any) => row.channels?.channel_id).filter(Boolean);
+      const readyVideoCounts: Record<string, number> = {};
+      
+      if (channelIds.length > 0) {
+        const { data: videoCounts } = await supabase
+          .from('videos')
+          .select('channel_id')
+          .eq('transcript_status', 'completed')
+          .in('channel_id', channelIds);
+        
+        // Count ready videos per channel
+        (videoCounts || []).forEach((video: any) => {
+          readyVideoCounts[video.channel_id] = (readyVideoCounts[video.channel_id] || 0) + 1;
+        });
+      }
+
       // Map joined data to Creator type
       const mappedCreators: Creator[] = (data || [])
         .filter((row: any) => row.channels) // Filter out rows where channel might be deleted
@@ -63,7 +79,7 @@ export function useCreators() {
           const channel = row.channels;
           const ingestionStatus = (channel.ingestion_status as Creator['ingestionStatus']) || 'pending';
           const ingestionProgress = channel.ingestion_progress || 0;
-          const indexedVideos = channel.indexed_videos || 0;
+          const indexedVideos = readyVideoCounts[channel.channel_id] || 0; // Use ready video count
           const avatarUrl = channel.avatar_url;
           const subscribers = channel.subscriber_count;
           
