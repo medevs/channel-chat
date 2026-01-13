@@ -71,7 +71,7 @@ pnpm run dev &
 **Comments & Documentation**: Always add clear, meaningful, and well-placed comments throughout code to improve understanding and long-term maintainability. Comments should explain WHY certain decisions were made, clarify non-obvious logic, document assumptions, edge cases, and important constraints, and provide context where the intent is not immediately clear from the code itself. Avoid redundant comments that merely restate what the code already expresses; focus on explaining complex behavior, tricky conditions, and reasoning that may not be obvious to future readers.
 **TypeScript**: Strict mode enabled, explicit types preferred
 **React**: Functional components with hooks, custom hooks for business logic
-**Styling**: Tailwind CSS with shadcn/ui components, consistent design system
+**Styling**: Tailwind CSS with shadcn/ui components, consistent design system. Always use defined CSS variables and color tokens from the design system (e.g., `bg-background`, `text-foreground`, `border`) rather than hardcoded colors. Never introduce new color values - always reference existing CSS variables defined in `src/index.css`.
 **Database**: SQL-first approach with typed database functions
 **API**: RESTful patterns for Supabase integration, typed responses
 
