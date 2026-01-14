@@ -316,6 +316,30 @@ export function AppSidebar({
           </Tooltip>
         </div>
 
+        {/* Saved Answers */}
+        <div className="mb-2">
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onOpenSaved}
+                className={cn(
+                  'w-full flex items-center gap-3 rounded-xl transition-all duration-200',
+                  isCollapsed ? 'p-2 justify-center' : 'p-2.5',
+                  showSaved
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60'
+                )}
+              >
+                <div className={cn('flex items-center justify-center', isCollapsed ? 'w-10 h-10' : 'w-9 h-9')}>
+                  <Bookmark className="w-4 h-4" />
+                </div>
+                {!isCollapsed && <span className="text-[13px] font-medium">Saved Answers</span>}
+              </button>
+            </TooltipTrigger>
+            {isCollapsed && <TooltipContent side="right">Saved Answers</TooltipContent>}
+          </Tooltip>
+        </div>
+
         <nav className="space-y-1">
           {creators.map((creator, i) => (
             <div
@@ -339,7 +363,7 @@ export function AppSidebar({
                       <Avatar className={cn('shrink-0 ring-2 ring-transparent transition-all w-10 h-10', 
                         activeCreatorId === creator.id && 'ring-primary/30'
                       )}>
-                        <AvatarImage src={creator.avatarUrl || undefined} alt={creator.name} />
+                        <AvatarImage key={creator.avatarUrl} src={creator.avatarUrl || undefined} alt={creator.name} />
                         <AvatarFallback className="font-display text-xs">
                           {creator.avatarUrl ? creator.name.charAt(0) : (
                             creator.ingestionStatus === 'pending' || creator.ingestionStatus === 'processing' ? (
@@ -361,7 +385,7 @@ export function AppSidebar({
                     <Avatar className={cn('shrink-0 ring-2 ring-transparent transition-all w-9 h-9', 
                       activeCreatorId === creator.id && 'ring-primary/30'
                     )}>
-                      <AvatarImage src={creator.avatarUrl || undefined} alt={creator.name} />
+                      <AvatarImage key={creator.avatarUrl} src={creator.avatarUrl || undefined} alt={creator.name} />
                       <AvatarFallback className="font-display text-xs">
                         {creator.avatarUrl ? creator.name.charAt(0) : (
                           creator.ingestionStatus === 'pending' || creator.ingestionStatus === 'processing' ? (

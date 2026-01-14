@@ -98,6 +98,13 @@ export default function CreatorProfile() {
 
         if (channelError) throw channelError;
 
+        // Count videos with completed transcripts (actual indexed count)
+        const { count: indexedCount } = await supabase
+          .from('videos')
+          .select('*', { count: 'exact', head: true })
+          .eq('channel_id', channelData.channel_id)
+          .eq('transcript_status', 'completed');
+
         setCreator({
           id: channelData.id,
           channelId: channelData.channel_id,
@@ -106,7 +113,7 @@ export default function CreatorProfile() {
           avatarUrl: channelData.avatar_url,
           subscriberCount: channelData.subscriber_count,
           totalVideos: channelData.total_videos || 0,
-          indexedVideos: channelData.indexed_videos || 0,
+          indexedVideos: indexedCount || 0,
           ingestionStatus: channelData.ingestion_status,
           ingestionProgress: channelData.ingestion_progress || 0,
           errorMessage: channelData.error_message,

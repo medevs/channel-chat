@@ -156,7 +156,7 @@ export function useCreators() {
   const addCreator = useCallback(async (creator: Creator) => {
     if (!user) return;
 
-    // Just add to local state - polling will update with real data
+    // Add to local state immediately - backend now returns correct 'processing' status
     setCreators((prev) => {
       const updated = [creator, ...prev];
       creatorsRef.current = updated;
@@ -173,7 +173,10 @@ export function useCreators() {
       .then(({ error }) => {
         if (error) console.error('Error linking creator:', error);
       });
-  }, [user]);
+
+    // Trigger immediate poll to get latest status
+    setTimeout(() => fetchCreators(false), 500);
+  }, [user, fetchCreators]);
 
   // Refresh creators from database
   const refresh = useCallback(() => {
