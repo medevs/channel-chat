@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { requireAuth } from "../_shared/auth-middleware.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -366,23 +367,28 @@ serve(async (req) => {
     
     console.log(`Embedding generation complete: ${JSON.stringify(results)}`);
     
-    // Check if all embeddings are complete and update channel status
+    // Update channel indexed_videos count after embeddings are complete
     if (results.processed > 0 && channel_id) {
-      const { data: completionCheck } = await supabase
-        .from('transcript_chunks')
-        .select('id')
+      // Count videos that have completed embeddings (ready for chat)
+      const { count: indexedCount } = await supabase
+        .from('videos')
+        .select(`
+          video_id,
+          transcripts!inner(
+            transcript_id,
+            transcript_chunks!inner(embedding_status)
+          )
+        `, { count: 'exact', head: true })
         .eq('channel_id', channel_id)
-        .eq('embedding_status', 'completed')
-        .limit(1);
+        .eq('transcripts.transcript_chunks.embedding_status', 'completed');
 
-      if (completionCheck && completionCheck.length > 0) {
-        console.log(`Updating channel ${channel_id} status to completed`);
-        await supabase.from('channels').update({
-          ingestion_status: 'completed',
-          ingestion_progress: 100,
-          last_indexed_at: new Date().toISOString(),
-        }).eq('channel_id', channel_id);
-      }
+      console.log(`Updating channel ${channel_id}: indexed_videos=${indexedCount}`);
+      await supabase.from('channels').update({
+        ingestion_status: 'completed',
+        ingestion_progress: 100,
+        indexed_videos: indexedCount || 0,
+        last_indexed_at: new Date().toISOString(),
+      }).eq('channel_id', channel_id);
     }
     
     return new Response(JSON.stringify({

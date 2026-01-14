@@ -10,6 +10,7 @@ import {
   RATE_LIMITS,
   corsHeaders,
 } from "../_shared/abuse-protection.ts";
+import { requireAuth } from "../_shared/auth-middleware.ts";
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -277,6 +278,41 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  
+  // Extract user from JWT (already verified by platform via verify_jwt = true)
+  const authHeader = req.headers.get('Authorization')!;
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+  
+  if (authError || !user) {
+    return createErrorResponse('Authentication failed', ErrorCodes.UNAUTHORIZED, 401);
+  }
+  
+  // Check rate limit
+  const rateLimitKey = `chat:${user.id}`;
+  const rateLimit = checkRateLimit(
+    rateLimitKey,
+    RATE_LIMITS.chat.authenticated.requests,
+    RATE_LIMITS.chat.authenticated.windowMinutes
+  );
+  
+  if (!rateLimit.allowed) {
+    logger.warn('Rate limit exceeded', { userId: user.sub });
+    return createErrorResponse(
+      'Rate limit exceeded. Please try again later.',
+      ErrorCodes.RATE_LIMITED,
+      429,
+      { 
+        resetAt: rateLimit.resetAt.toISOString(),
+        remaining: rateLimit.remaining 
+      },
+      true,
+      rateLimit.resetAt.getTime() - Date.now()
+    );
+  }
+  
+  logger.info('Request authenticated', { userId: user.sub });
   
   try {
     const { 

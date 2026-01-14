@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAuth } from "../_shared/auth-middleware.ts";
+import { checkRateLimit, createErrorResponse, ErrorCodes, RATE_LIMITS } from "../_shared/abuse-protection.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -174,6 +176,35 @@ async function fetchVideoMetadata(videoIds: string[], apiKey: string) {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Extract user from JWT (already verified by platform via verify_jwt = true)
+  const authHeader = req.headers.get('Authorization')!;
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+  
+  if (authError || !user) {
+    return createErrorResponse('Authentication failed', ErrorCodes.UNAUTHORIZED, 401);
+  }
+
+  // Check rate limit (stricter for ingestion)
+  const rateLimitKey = `ingest:${user.id}`;
+  const rateLimit = checkRateLimit(
+    rateLimitKey,
+    RATE_LIMITS.ingest.authenticated.requests,
+    RATE_LIMITS.ingest.authenticated.windowMinutes
+  );
+
+  if (!rateLimit.allowed) {
+    return createErrorResponse(
+      'Ingestion rate limit exceeded. You can ingest 5 channels per 5 minutes.',
+      ErrorCodes.RATE_LIMITED,
+      429,
+      { resetAt: rateLimit.resetAt.toISOString() },
+      true,
+      rateLimit.resetAt.getTime() - Date.now()
+    );
   }
 
   try {
@@ -477,26 +508,27 @@ serve(async (req) => {
       .select('*', { count: 'exact', head: true })
       .eq('channel_id', channelInfo.channel_id);
 
-    // Count videos with completed transcripts (ready for chat)
-    const { count: readyVideoCount } = await supabase
-      .from('videos')
-      .select(`
-        video_id,
-        transcripts!inner(extraction_status)
-      `, { count: 'exact', head: true })
-      .eq('channel_id', channelInfo.channel_id)
-      .eq('transcripts.extraction_status', 'completed');
-
     // Update channel completion status
+    // Note: indexed_videos will be updated by run-pipeline after embeddings are generated
     await supabase
       .from('channels')
       .update({
         ingestion_status: 'completed',
         ingestion_progress: 100,
-        indexed_videos: readyVideoCount || 0, // Count of videos ready for chat
         total_videos: channelInfo.total_video_count,
       })
       .eq('id', channel.id);
+
+    // Trigger transcript extraction in background (don't wait for it)
+    console.log('Triggering transcript extraction for channel:', channelInfo.channel_id);
+    fetch(`${SUPABASE_URL}/functions/v1/extract-transcripts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ channel_id: channelInfo.channel_id }),
+    }).catch(err => console.error('Failed to trigger transcript extraction:', err));
 
     return new Response(
       JSON.stringify({
@@ -506,7 +538,6 @@ serve(async (req) => {
           id: channel.id,
           channel_id: channelInfo.channel_id,
           channel_name: channelInfo.channel_name,
-          indexed_videos: readyVideoCount || 0, // Count of videos ready for chat
           total_videos: channelInfo.total_video_count,
           ingestion_status: 'completed',
           ingestion_progress: 100,

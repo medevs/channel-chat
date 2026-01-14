@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
+import { requireAuth } from "../_shared/auth-middleware.ts";
 
 /**
  * LAYER 1: Transcript Extraction Edge Function
@@ -258,6 +259,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   
+  // Note: No authentication required - this function is only called internally
+  // by other Edge Functions using the service role key
+  
   try {
     // Validate API key exists
     if (!TRANSCRIPT_API_KEY) {
@@ -322,6 +326,12 @@ serve(async (req) => {
       
       const result = await processVideoTranscript(video.video_id, channelId);
       
+      // Update video status
+      await supabase
+        .from('videos')
+        .update({ transcript_status: result.status })
+        .eq('video_id', video.video_id);
+      
       // Track stats
       if (result.status === 'completed') stats.completed++;
       else if (result.status === 'no_captions') stats.no_captions++;
@@ -341,8 +351,8 @@ serve(async (req) => {
     let errorMessage: string | null = null;
     
     if (stats.completed > 0) {
-      // At least some videos have captions - completed extraction
-      finalStatus = 'completed';
+      // At least some videos have captions - move to processing (embeddings)
+      finalStatus = 'processing';
     } else if (stats.no_captions === videos.length) {
       // All videos have no captions - this is a data limitation
       finalStatus = 'no_captions';
@@ -367,6 +377,22 @@ serve(async (req) => {
     console.log(`Layer 1 Complete: ${finalStatus}`);
     console.log(`Stats: ${JSON.stringify(stats)}`);
     console.log(`==========================================\n`);
+    
+    // Trigger Layer 2 (chunking and embeddings) if we have completed transcripts
+    if (stats.completed > 0) {
+      console.log('Triggering Layer 2 (run-pipeline) for channel:', channelId);
+      fetch(`${SUPABASE_URL}/functions/v1/run-pipeline`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({ 
+          channel_id: channelId,
+          process_all: true  // Process all transcripts for this channel
+        }),
+      }).catch(err => console.error('Failed to trigger run-pipeline:', err));
+    }
     
     return new Response(JSON.stringify({
       success: stats.completed > 0,
