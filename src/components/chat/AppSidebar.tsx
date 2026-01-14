@@ -273,6 +273,30 @@ export function AppSidebar({
             Creators
           </p>
         )}
+        
+        {/* Add Creator */}
+        <div className="mb-2">
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className={cn(
+                  'w-full flex items-center gap-3 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60',
+                  isCollapsed ? 'p-2 justify-center' : 'p-2.5'
+                )}
+              >
+                <div className={cn('flex items-center justify-center rounded-lg border-2 border-dashed border-border', 
+                  isCollapsed ? 'w-10 h-10' : 'w-9 h-9'
+                )}>
+                  <Plus className="w-4 h-4" />
+                </div>
+                {!isCollapsed && <span className="text-[13px] font-medium">Add Creator</span>}
+              </button>
+            </TooltipTrigger>
+            {isCollapsed && <TooltipContent side="right">Add Creator</TooltipContent>}
+          </Tooltip>
+        </div>
+
         <nav className="space-y-1">
           {creators.map((creator, i) => (
             <div
@@ -394,29 +418,6 @@ export function AppSidebar({
           ))}
         </nav>
 
-        {/* Add Creator */}
-        <div className="mt-2">
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className={cn(
-                  'w-full flex items-center gap-3 rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60',
-                  isCollapsed ? 'p-2 justify-center' : 'p-2.5'
-                )}
-              >
-                <div className={cn('flex items-center justify-center rounded-lg border-2 border-dashed border-border', 
-                  isCollapsed ? 'w-10 h-10' : 'w-9 h-9'
-                )}>
-                  <Plus className="w-4 h-4" />
-                </div>
-                {!isCollapsed && <span className="text-[13px] font-medium">Add Creator</span>}
-              </button>
-            </TooltipTrigger>
-            {isCollapsed && <TooltipContent side="right">Add Creator</TooltipContent>}
-          </Tooltip>
-        </div>
-
         {/* Saved Answers */}
         <div className="mt-2">
           <Tooltip delayDuration={0}>
@@ -473,9 +474,9 @@ export function AppSidebar({
         <div className={cn('flex gap-1 mt-2', isCollapsed ? 'flex-col' : 'flex-row')}>
           {/* Theme toggle */}
           {isCollapsed ? (
-            <ThemeToggle />
+            <ThemeToggle collapsed />
           ) : (
-            <ThemeToggle />
+            <ThemeToggle showLabel />
           )}
         </div>
         
@@ -487,8 +488,8 @@ export function AppSidebar({
                 size={isCollapsed ? 'icon' : 'sm'}
                 onClick={onOpenSettings}
                 className={cn(
-                  'text-muted-foreground hover:text-foreground',
-                  !isCollapsed && 'flex-1 justify-start'
+                  'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent',
+                  isCollapsed ? 'h-10 w-10 rounded-xl' : 'flex-1 justify-start'
                 )}
               >
                 <Settings className={cn('w-4 h-4', !isCollapsed && 'mr-2')} />
@@ -505,8 +506,8 @@ export function AppSidebar({
                 size={isCollapsed ? 'icon' : 'sm'}
                 onClick={handleLogout}
                 className={cn(
-                  'text-muted-foreground hover:text-foreground',
-                  !isCollapsed && 'flex-1 justify-start'
+                  'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent',
+                  isCollapsed ? 'h-10 w-10 rounded-xl' : 'flex-1 justify-start'
                 )}
               >
                 <LogOut className={cn('w-4 h-4', !isCollapsed && 'mr-2')} />

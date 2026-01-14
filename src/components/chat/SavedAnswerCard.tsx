@@ -43,21 +43,21 @@ export function SavedAnswerCard({
   };
 
   return (
-    <div className="p-4 rounded-xl border border-border bg-card hover:border-primary/20 transition-colors">
+    <div className="group p-5 rounded-2xl border border-border bg-gradient-to-br from-card to-card/50 hover:border-primary/30 hover:shadow-lg transition-all duration-200">
       {/* Creator & metadata */}
-      <div className="flex items-center gap-3 mb-3">
-        <Avatar className="w-8 h-8">
+      <div className="flex items-center gap-3 mb-4">
+        <Avatar className="w-9 h-9 ring-2 ring-primary/10">
           <AvatarImage src={creatorAvatar || undefined} />
-          <AvatarFallback className="text-xs">
+          <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
             {creatorName?.charAt(0) || '?'}
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">
+          <p className="font-semibold text-sm truncate text-foreground">
             {creatorName || 'Unknown Creator'}
           </p>
-          <p className="text-2xs text-muted-foreground">
-            Saved {format(new Date(answer.created_at), 'MMM d, yyyy')}
+          <p className="text-xs text-muted-foreground">
+            {format(new Date(answer.created_at), 'MMM d, yyyy • h:mm a')}
           </p>
         </div>
         <Button
@@ -65,7 +65,7 @@ export function SavedAnswerCard({
           size="icon"
           onClick={handleDelete}
           disabled={isDeleting}
-          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
         >
           {isDeleting ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -76,34 +76,40 @@ export function SavedAnswerCard({
       </div>
 
       {/* Answer content */}
-      <p className="text-sm text-foreground leading-relaxed mb-3 line-clamp-4">
-        {answer.content}
-      </p>
+      <div className="mb-4 p-3 rounded-lg bg-muted/30">
+        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+          {answer.content}
+        </p>
+      </div>
 
-      {/* Sources / timestamps */}
+      {/* Sources / timestamps - Show all */}
       {answer.sources && answer.sources.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {answer.sources.slice(0, 3).map((source, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSourceClick(source)}
-              className={cn(
-                'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-2xs font-medium',
-                'bg-primary/10 text-primary hover:bg-primary/20 transition-colors'
-              )}
-            >
-              <Play className="w-3 h-3" />
-              <span className="truncate max-w-[120px]">{source.title}</span>
-              {source.timestamp && (
-                <span className="text-primary/70">@ {source.timestamp}</span>
-              )}
-            </button>
-          ))}
-          {answer.sources.length > 3 && (
-            <span className="text-2xs text-muted-foreground px-2 py-1.5">
-              +{answer.sources.length - 3} more
-            </span>
-          )}
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Sources ({answer.sources.length})
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {answer.sources.map((source, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSourceClick(source)}
+                className={cn(
+                  'inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium',
+                  'bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground',
+                  'transition-all duration-200 hover:scale-105 hover:shadow-md',
+                  'border border-primary/20 hover:border-primary'
+                )}
+              >
+                <Play className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate max-w-[140px]">{source.title}</span>
+                {source.timestamp && (
+                  <span className="shrink-0 font-mono text-xs opacity-80">
+                    {source.timestamp}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
