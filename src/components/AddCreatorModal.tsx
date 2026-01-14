@@ -125,23 +125,23 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 font-display">
-              <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center">
-                <Youtube className="w-4 h-4 text-destructive" />
+        <DialogContent className="w-[95vw] max-w-md mx-auto rounded-2xl p-4 sm:p-6">
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="flex items-center gap-2 font-display text-lg">
+              <div className="w-7 h-7 rounded-lg bg-destructive/10 flex items-center justify-center">
+                <Youtube className="w-3.5 h-3.5 text-destructive" />
               </div>
               Add a Creator
             </DialogTitle>
-            <DialogDescription className="text-sm">
+            <DialogDescription className="text-xs sm:text-sm">
               Enter the YouTube channel URL to start indexing their content.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <form onSubmit={handleSubmit} className="space-y-3 mt-3">
             {!canAddCreator && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 text-sm">
-                <Lock className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs sm:text-sm">
+                <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium">Creator limit reached</p>
                   <p className="text-xs opacity-80">Free plan allows {limits.maxCreators} creator. Upgrade for more.</p>
@@ -149,7 +149,7 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="channel-url" className="text-xs font-medium">Channel URL</Label>
               <Input
                 id="channel-url"
@@ -157,7 +157,7 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 disabled={isLoading || !canAddCreator}
-                className="h-11 rounded-xl"
+                className="h-9 sm:h-10 rounded-xl text-sm"
               />
               <p className="text-2xs text-muted-foreground">
                 {canAddCreator 
@@ -167,27 +167,27 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
             </div>
 
             {/* Content Type Selection */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label className="text-xs font-medium">Content to Index</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 <button
                   type="button"
                   onClick={() => toggleContentType('videos')}
                   disabled={isLoading || !canAddCreator}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                  className={`flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl border-2 transition-all ${
                     contentTypes.videos 
                       ? 'border-primary bg-primary/5 text-primary' 
                       : 'border-border bg-background text-muted-foreground hover:border-primary/50'
                   } ${(isLoading || !canAddCreator) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <Video className="w-5 h-5" />
-                  <span className="text-xs font-medium">Videos</span>
-                  <div className={`h-4 w-4 shrink-0 rounded-sm border flex items-center justify-center ${
+                  <Video className="w-4 h-4" />
+                  <span className="text-2xs sm:text-xs font-medium">Videos</span>
+                  <div className={`h-3.5 w-3.5 shrink-0 rounded-sm border flex items-center justify-center ${
                     contentTypes.videos 
                       ? 'bg-primary border-primary text-primary-foreground' 
                       : 'border-primary'
                   }`}>
-                    {contentTypes.videos && <Check className="h-3 w-3" />}
+                    {contentTypes.videos && <Check className="h-2.5 w-2.5" />}
                   </div>
                 </button>
                 
@@ -195,20 +195,20 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
                   type="button"
                   onClick={() => toggleContentType('shorts')}
                   disabled={isLoading || !canAddCreator}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                  className={`flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl border-2 transition-all ${
                     contentTypes.shorts 
                       ? 'border-primary bg-primary/5 text-primary' 
                       : 'border-border bg-background text-muted-foreground hover:border-primary/50'
                   } ${(isLoading || !canAddCreator) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <Film className="w-5 h-5" />
-                  <span className="text-xs font-medium">Shorts</span>
-                  <div className={`h-4 w-4 shrink-0 rounded-sm border flex items-center justify-center ${
+                  <Film className="w-4 h-4" />
+                  <span className="text-2xs sm:text-xs font-medium">Shorts</span>
+                  <div className={`h-3.5 w-3.5 shrink-0 rounded-sm border flex items-center justify-center ${
                     contentTypes.shorts 
                       ? 'bg-primary border-primary text-primary-foreground' 
                       : 'border-primary'
                   }`}>
-                    {contentTypes.shorts && <Check className="h-3 w-3" />}
+                    {contentTypes.shorts && <Check className="h-2.5 w-2.5" />}
                   </div>
                 </button>
                 
@@ -216,81 +216,81 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
                   type="button"
                   onClick={() => toggleContentType('lives')}
                   disabled={isLoading || !canAddCreator}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+                  className={`flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl border-2 transition-all ${
                     contentTypes.lives 
                       ? 'border-primary bg-primary/5 text-primary' 
                       : 'border-border bg-background text-muted-foreground hover:border-primary/50'
                   } ${(isLoading || !canAddCreator) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <Radio className="w-5 h-5" />
-                  <span className="text-xs font-medium">Lives</span>
-                  <div className={`h-4 w-4 shrink-0 rounded-sm border flex items-center justify-center ${
+                  <Radio className="w-4 h-4" />
+                  <span className="text-2xs sm:text-xs font-medium">Lives</span>
+                  <div className={`h-3.5 w-3.5 shrink-0 rounded-sm border flex items-center justify-center ${
                     contentTypes.lives 
                       ? 'bg-primary border-primary text-primary-foreground' 
                       : 'border-primary'
                   }`}>
-                    {contentTypes.lives && <Check className="h-3 w-3" />}
+                    {contentTypes.lives && <Check className="h-2.5 w-2.5" />}
                   </div>
                 </button>
               </div>
               {!isValidSelection && (
-                <p className="text-xs text-destructive">Select at least one content type</p>
+                <p className="text-2xs sm:text-xs text-destructive">Select at least one content type</p>
               )}
             </div>
 
             {/* Import Settings */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Label className="text-xs font-medium">Import Settings</Label>
               
               {/* Import Mode Selection */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1.5">
                 <button
                   type="button"
                   onClick={() => setImportMode('latest')}
                   disabled={isLoading || !canAddCreator}
-                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all ${
+                  className={`flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl border-2 transition-all ${
                     importSettings.mode === 'latest' 
                       ? 'border-primary bg-primary/5 text-primary' 
                       : 'border-border bg-background text-muted-foreground hover:border-primary/50'
                   } ${(isLoading || !canAddCreator) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <ArrowDown className="w-4 h-4" />
-                  <span className="text-xs font-medium">Latest</span>
+                  <ArrowDown className="w-3.5 h-3.5" />
+                  <span className="text-2xs sm:text-xs font-medium">Latest</span>
                 </button>
                 
                 <button
                   type="button"
                   onClick={() => setImportMode('oldest')}
                   disabled={isLoading || !canAddCreator}
-                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all ${
+                  className={`flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl border-2 transition-all ${
                     importSettings.mode === 'oldest' 
                       ? 'border-primary bg-primary/5 text-primary' 
                       : 'border-border bg-background text-muted-foreground hover:border-primary/50'
                   } ${(isLoading || !canAddCreator) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <ArrowUp className="w-4 h-4" />
-                  <span className="text-xs font-medium">Oldest</span>
+                  <ArrowUp className="w-3.5 h-3.5" />
+                  <span className="text-2xs sm:text-xs font-medium">Oldest</span>
                 </button>
                 
                 <button
                   type="button"
                   onClick={() => setImportMode('all')}
                   disabled={isLoading || !canAddCreator}
-                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all ${
+                  className={`flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl border-2 transition-all ${
                     importSettings.mode === 'all' 
                       ? 'border-primary bg-primary/5 text-primary' 
                       : 'border-border bg-background text-muted-foreground hover:border-primary/50'
                   } ${(isLoading || !canAddCreator) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <Infinity className="w-4 h-4" />
-                  <span className="text-xs font-medium">All</span>
+                  <Infinity className="w-3.5 h-3.5" />
+                  <span className="text-2xs sm:text-xs font-medium">All</span>
                 </button>
               </div>
 
               {/* Video Limit Input (only shown when not "all") */}
               {importSettings.mode !== 'all' && (
-                <div className="flex items-center gap-3">
-                  <Label htmlFor="video-limit" className="text-xs text-muted-foreground whitespace-nowrap">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="video-limit" className="text-2xs sm:text-xs text-muted-foreground whitespace-nowrap">
                     Number of videos:
                   </Label>
                   <Input
@@ -301,44 +301,44 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
                     value={importSettings.limit ?? DEFAULT_VIDEO_LIMIT}
                     onChange={(e) => setVideoLimit(e.target.value)}
                     disabled={isLoading || !canAddCreator}
-                    className="h-9 w-20 rounded-lg text-center"
+                    className="h-8 w-16 rounded-lg text-center text-sm"
                   />
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-2xs sm:text-xs text-muted-foreground">
                     (max {limits.maxVideosPerCreator})
                   </span>
                 </div>
               )}
 
               {/* Import Preview */}
-              <div className="p-2 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+              <div className="p-2 rounded-lg bg-muted/50 text-2xs sm:text-xs text-muted-foreground">
                 Will import: <span className="font-medium text-foreground">{getImportPreview()}</span>
               </div>
             </div>
 
             {error && !upgradeDialog.isOpen && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs sm:text-sm">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading} className="h-10 rounded-xl">
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading} className="h-9 rounded-xl text-sm">
                 Cancel
               </Button>
               <Button 
                 type="submit" 
                 disabled={!url.trim() || isLoading || !canAddCreator || !isValidSelection} 
-                className="h-10 rounded-xl gap-2"
+                className="h-9 rounded-xl gap-2 text-sm"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     Indexing...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-3.5 h-3.5" />
                     Add Creator
                   </>
                 )}

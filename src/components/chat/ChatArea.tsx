@@ -225,7 +225,7 @@ export function ChatArea({
                   variant="ghost"
                   size="icon"
                   onClick={() => setSearchOpen(true)}
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  className="h-10 w-10 md:h-8 md:w-8 text-muted-foreground hover:text-foreground"
                 >
                   <Search className="w-4 h-4" />
                 </Button>
@@ -240,7 +240,7 @@ export function ChatArea({
               variant="ghost"
               size="icon"
               onClick={clearHistory}
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              className="h-10 w-10 md:h-8 md:w-8 text-muted-foreground hover:text-destructive"
               title="Clear chat history"
             >
               <Trash2 className="w-4 h-4" />
@@ -573,7 +573,7 @@ export function ChatArea({
                 type="submit"
                 size="icon"
                 disabled={!inputValue.trim() || chatDisabled}
-                className="h-9 w-9 rounded-xl"
+                className="h-11 w-11 md:h-9 md:w-9 rounded-xl"
               >
                 <Send className="w-4 h-4" />
               </Button>

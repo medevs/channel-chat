@@ -222,6 +222,22 @@ export function AppSidebar({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [isMobile, isTablet, isOpen, onToggle]);
 
+  // Swipe to close (mobile)
+  useEffect(() => {
+    if (!isMobile || !isOpen) return;
+    let startX = 0;
+    const handleTouchStart = (e: TouchEvent) => { startX = e.touches[0].clientX; };
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (startX - e.changedTouches[0].clientX > 60) onToggle();
+    };
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isMobile, isOpen, onToggle]);
+
   const handleCreatorSelect = useCallback((id: string) => {
     onSelectCreator(id);
   }, [onSelectCreator]);
@@ -234,11 +250,14 @@ export function AppSidebar({
     <aside
       ref={sidebarRef}
       className={cn(
-        'flex flex-col h-full bg-sidebar transition-all duration-300 ease-out overflow-hidden',
+        'flex flex-col h-full overflow-hidden',
         isMobileOrTablet
-          ? 'fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] shadow-2xl safe-top safe-bottom'
-          : isCollapsed ? 'w-[72px]' : 'w-[260px] lg:w-[280px]',
-        !isMobileOrTablet && 'border-r border-sidebar-border'
+          ? 'fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] shadow-2xl transition-transform duration-300 ease-out bg-background'
+          : cn(
+              'bg-sidebar transition-all duration-300 ease-out border-r border-sidebar-border',
+              isCollapsed ? 'w-[72px]' : 'w-[260px] lg:w-[280px]'
+            ),
+        isMobileOrTablet && (isOpen ? 'translate-x-0' : '-translate-x-full')
       )}
     >
       {/* Header */}
@@ -538,20 +557,13 @@ export function AppSidebar({
         {/* Backdrop */}
         <div
           className={cn(
-            'fixed inset-0 z-40 bg-background/80 backdrop-blur-sm transition-opacity duration-300',
+            'fixed inset-0 z-40 bg-background backdrop-blur-sm transition-opacity duration-300',
             isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
           )}
           onClick={onToggle}
         />
-        {/* Sidebar slides in from left */}
-        <div
-          className={cn(
-            'transition-transform duration-300 ease-out',
-            isOpen ? 'translate-x-0' : '-translate-x-full'
-          )}
-        >
-          {sidebarContent}
-        </div>
+        {/* Sidebar */}
+        {sidebarContent}
       </>
     );
   }

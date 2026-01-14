@@ -197,6 +197,14 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
   .text-2xs {
     font-size: 0.625rem;
     line-height: 0.75rem;

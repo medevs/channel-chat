@@ -168,6 +168,7 @@ export function Chat() {
         </Button>
       )}
 
+      {/* Sidebar - rendered first for proper flex order on desktop */}
       <AppSidebar
         creators={creators}
         activeCreatorId={activeCreatorId}
@@ -184,6 +185,7 @@ export function Chat() {
         isTablet={isTablet}
       />
 
+      {/* Main content area */}
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         <div className="flex-1 flex overflow-hidden min-w-0">
           <div className="flex-1 overflow-hidden min-w-0">
