@@ -283,10 +283,10 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
       }
 
       // Update final message with metadata
-      // Map citations to VideoSource format
+      // Map citations to VideoSource format - API returns videoTitle field
       const sources: VideoSource[] = (finalData?.citations || []).map((citation: any) => ({
         videoId: citation.videoId,
-        title: citation.videoTitle || citation.title || 'Unknown Video',
+        title: citation.videoTitle,
         timestamp: citation.timestamp || null,
         timestampSeconds: citation.startTime || null,
         endTimeSeconds: citation.endTime || null,

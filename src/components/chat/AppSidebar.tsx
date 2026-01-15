@@ -304,7 +304,7 @@ export function AppSidebar({
       className={cn(
         'flex flex-col h-full overflow-hidden',
         isMobileOrTablet
-          ? 'fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] shadow-2xl transition-transform duration-300 ease-out bg-background'
+          ? 'fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] shadow-2xl transition-transform duration-300 ease-out bg-background border-r border-sidebar-border'
           : cn(
               'bg-sidebar transition-all duration-300 ease-out border-r border-sidebar-border',
               isCollapsed ? 'w-[72px]' : 'w-[260px] lg:w-[280px]'
@@ -512,38 +512,6 @@ export function AppSidebar({
             </div>
           ))}
         </nav>
-
-        {/* Saved Answers */}
-        <div className="mt-2">
-          <Tooltip delayDuration={0}>
-            <TooltipTrigger asChild>
-              <button
-                onClick={onOpenSaved}
-                className={cn(
-                  'w-full flex items-center gap-3 rounded-xl transition-all duration-200',
-                  isCollapsed ? 'p-2 justify-center' : 'p-2.5',
-                  showSaved
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-soft'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60'
-                )}
-              >
-                <div className={cn(
-                  'flex items-center justify-center rounded-lg',
-                  isCollapsed ? 'w-10 h-10' : 'w-9 h-9',
-                  showSaved ? 'bg-primary/10' : 'bg-muted'
-                )}>
-                  <Bookmark className={cn('w-4 h-4', showSaved && 'text-primary')} />
-                </div>
-                {!isCollapsed && (
-                  <div className="flex items-center gap-2 flex-1">
-                    <span className="text-[13px] font-medium">Saved</span>
-                  </div>
-                )}
-              </button>
-            </TooltipTrigger>
-            {isCollapsed && <TooltipContent side="right">Saved</TooltipContent>}
-          </Tooltip>
-        </div>
       </div>
 
       {/* Footer */}
