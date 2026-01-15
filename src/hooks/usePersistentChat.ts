@@ -283,11 +283,23 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
       }
 
       // Update final message with metadata
+      // Map citations to VideoSource format
+      const sources: VideoSource[] = (finalData?.citations || []).map((citation: any) => ({
+        videoId: citation.videoId,
+        title: citation.videoTitle || citation.title || 'Unknown Video',
+        timestamp: citation.timestamp || null,
+        timestampSeconds: citation.startTime || null,
+        endTimeSeconds: citation.endTime || null,
+        thumbnailUrl: citation.thumbnailUrl || undefined,
+        hasTimestamp: citation.hasTimestamp ?? (citation.startTime !== null && citation.startTime !== undefined),
+        id: citation.videoId,
+      }));
+
       const finalMessage: ChatMessage = {
         id: streamingMessageId,
         type: 'ai',
         content: fullContent,
-        sources: finalData?.citations || [],
+        sources,
         showSources: finalData?.showCitations,
         timestamp: new Date(),
         confidence: finalData?.confidence,
