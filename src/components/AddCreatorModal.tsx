@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import type { Creator, ContentTypeOptions, ImportSettings, VideoImportMode } from '@/lib/types';
+import type { Creator, ImportSettings, VideoImportMode } from '@/lib/types';
 import { useIngestChannel, type LimitExceededError } from '@/hooks/useIngestChannel';
-import { Youtube, Loader2, Sparkles, AlertCircle, Lock, Video, Film, Radio, Check, ArrowDown, ArrowUp, Infinity } from 'lucide-react';
+import { Youtube, Loader2, Sparkles, AlertCircle, Lock, ArrowDown, ArrowUp, Infinity } from 'lucide-react';
 
 interface AddCreatorModalProps {
   isOpen: boolean;
@@ -19,11 +19,6 @@ const MAX_VIDEO_LIMIT = 500;
 
 export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorModalProps) {
   const [url, setUrl] = useState('');
-  const [contentTypes, setContentTypes] = useState<ContentTypeOptions>({
-    videos: true,
-    shorts: false,
-    lives: false,
-  });
   const [importSettings, setImportSettings] = useState<ImportSettings>({
     mode: 'latest',
     limit: DEFAULT_VIDEO_LIMIT,
@@ -56,13 +51,12 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
       limit: importSettings.mode === 'all' ? null : Math.min(importSettings.limit ?? DEFAULT_VIDEO_LIMIT, limits.maxVideosPerCreator),
     };
 
-    const result = await ingestChannel(url, contentTypes, finalImportSettings);
+    const result = await ingestChannel(url, undefined, finalImportSettings);
 
     if (result) {
       // Handle Creator response (your current format)
       onAddCreator(result);
       setUrl('');
-      setContentTypes({ videos: true, shorts: false, lives: false });
       setImportSettings({ mode: 'latest', limit: DEFAULT_VIDEO_LIMIT });
       
       // Close modal immediately since creator was successfully added
@@ -73,7 +67,6 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
   const handleClose = () => {
     clearError();
     setUrl('');
-    setContentTypes({ videos: true, shorts: false, lives: false });
     setImportSettings({ mode: 'latest', limit: DEFAULT_VIDEO_LIMIT });
     onClose();
   };
@@ -91,10 +84,6 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
     return count;
   };
 
-  const toggleContentType = useCallback((type: keyof ContentTypeOptions) => {
-    setContentTypes(prev => ({ ...prev, [type]: !prev[type] }));
-  }, []);
-
   const setImportMode = useCallback((mode: VideoImportMode) => {
     setImportSettings(prev => ({ ...prev, mode }));
   }, []);
@@ -109,9 +98,6 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
     const clamped = Math.max(MIN_VIDEO_LIMIT, Math.min(num, MAX_VIDEO_LIMIT));
     setImportSettings(prev => ({ ...prev, limit: clamped }));
   }, []);
-
-  // Ensure at least one content type is selected
-  const isValidSelection = contentTypes.videos || contentTypes.shorts || contentTypes.lives;
 
   // Preview message for what will be imported
   const getImportPreview = (): string => {
@@ -164,78 +150,6 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
                   ? `You can add ${remainingCreators} more creator(s)`
                   : 'Upgrade to add more creators'}
               </p>
-            </div>
-
-            {/* Content Type Selection */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Content to Index</Label>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => toggleContentType('videos')}
-                  disabled={isLoading || !canAddCreator}
-                  className={`flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl border-2 transition-all ${
-                    contentTypes.videos 
-                      ? 'border-primary bg-primary/5 text-primary' 
-                      : 'border-border bg-background text-muted-foreground hover:border-primary/50'
-                  } ${(isLoading || !canAddCreator) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  <Video className="w-4 h-4" />
-                  <span className="text-2xs sm:text-xs font-medium">Videos</span>
-                  <div className={`h-3.5 w-3.5 shrink-0 rounded-sm border flex items-center justify-center ${
-                    contentTypes.videos 
-                      ? 'bg-primary border-primary text-primary-foreground' 
-                      : 'border-primary'
-                  }`}>
-                    {contentTypes.videos && <Check className="h-2.5 w-2.5" />}
-                  </div>
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => toggleContentType('shorts')}
-                  disabled={isLoading || !canAddCreator}
-                  className={`flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl border-2 transition-all ${
-                    contentTypes.shorts 
-                      ? 'border-primary bg-primary/5 text-primary' 
-                      : 'border-border bg-background text-muted-foreground hover:border-primary/50'
-                  } ${(isLoading || !canAddCreator) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  <Film className="w-4 h-4" />
-                  <span className="text-2xs sm:text-xs font-medium">Shorts</span>
-                  <div className={`h-3.5 w-3.5 shrink-0 rounded-sm border flex items-center justify-center ${
-                    contentTypes.shorts 
-                      ? 'bg-primary border-primary text-primary-foreground' 
-                      : 'border-primary'
-                  }`}>
-                    {contentTypes.shorts && <Check className="h-2.5 w-2.5" />}
-                  </div>
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => toggleContentType('lives')}
-                  disabled={isLoading || !canAddCreator}
-                  className={`flex flex-col items-center gap-1 p-2 sm:p-2.5 rounded-xl border-2 transition-all ${
-                    contentTypes.lives 
-                      ? 'border-primary bg-primary/5 text-primary' 
-                      : 'border-border bg-background text-muted-foreground hover:border-primary/50'
-                  } ${(isLoading || !canAddCreator) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  <Radio className="w-4 h-4" />
-                  <span className="text-2xs sm:text-xs font-medium">Lives</span>
-                  <div className={`h-3.5 w-3.5 shrink-0 rounded-sm border flex items-center justify-center ${
-                    contentTypes.lives 
-                      ? 'bg-primary border-primary text-primary-foreground' 
-                      : 'border-primary'
-                  }`}>
-                    {contentTypes.lives && <Check className="h-2.5 w-2.5" />}
-                  </div>
-                </button>
-              </div>
-              {!isValidSelection && (
-                <p className="text-2xs sm:text-xs text-destructive">Select at least one content type</p>
-              )}
             </div>
 
             {/* Import Settings */}
@@ -328,7 +242,7 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
               </Button>
               <Button 
                 type="submit" 
-                disabled={!url.trim() || isLoading || !canAddCreator || !isValidSelection} 
+                disabled={!url.trim() || isLoading || !canAddCreator} 
                 className="h-9 rounded-xl gap-2 text-sm"
               >
                 {isLoading ? (

@@ -385,7 +385,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 # Edge Functions configuration
 [functions.ingest-youtube-channel]
-verify_jwt = false  # Temporarily disabled for testing
+verify_jwt = false  # Disable JWT verification - function handles auth internally
 
 [functions.rag-chat]
 verify_jwt = false  # Allow public chat without authentication

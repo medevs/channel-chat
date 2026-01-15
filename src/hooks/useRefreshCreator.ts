@@ -29,7 +29,7 @@ export function useRefreshCreator(onUpdate?: (creator: Creator) => void) {
       const { data, error: functionError } = await supabase.functions.invoke('ingest-youtube-channel', {
         body: { 
           refresh: true,
-          channelId: channelId,
+          channelId: channelId, // This matches the Edge Function's expected parameter
           userId: user.id,
         },
       });
@@ -57,8 +57,8 @@ export function useRefreshCreator(onUpdate?: (creator: Creator) => void) {
       });
 
       // Trigger pipeline for new videos
-      if (newCount > 0) {
-        runPipelineForRefresh(channelId);
+      if (newCount > 0 && data.channel?.channel_id) {
+        await runPipelineForRefresh(data.channel.channel_id);
       }
 
       // Update creator data if callback provided
@@ -119,13 +119,13 @@ export function useRefreshCreator(onUpdate?: (creator: Creator) => void) {
 }
 
 // Run pipeline for refreshed videos
-async function runPipelineForRefresh(channelId: string) {
-  console.log('[Refresh Pipeline] Starting for:', channelId);
+async function runPipelineForRefresh(youtubeChannelId: string) {
+  console.log('[Refresh Pipeline] Starting for:', youtubeChannelId);
   
   try {
     // Layer 1: Extract transcripts
     const layer1Result = await supabase.functions.invoke('extract-transcripts', {
-      body: { channel_id: channelId },
+      body: { channel_id: youtubeChannelId },
     });
     
     console.log('[Refresh Pipeline] Layer 1 result:', layer1Result.data);
@@ -133,7 +133,7 @@ async function runPipelineForRefresh(channelId: string) {
     if (layer1Result.data?.readyForLayer2) {
       // Layer 2: Chunk and embed
       const layer2Result = await supabase.functions.invoke('run-pipeline', {
-        body: { channel_id: channelId },
+        body: { channel_id: youtubeChannelId },
       });
       
       console.log('[Refresh Pipeline] Layer 2 result:', layer2Result.data);

@@ -30,7 +30,17 @@ const formatSubscribers = (count: string | null): string => {
   return count;
 };
 
-const getStatusBadge = (creator: Creator) => {
+const getStatusBadge = (creator: Creator, isRefreshing: boolean) => {
+  // Show refreshing state
+  if (isRefreshing) {
+    return (
+      <Badge variant="outline" className="text-2xs px-1.5 py-0 h-4 gap-1 text-primary border-primary/30 bg-primary/10">
+        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+        Refreshing
+      </Badge>
+    );
+  }
+  
   // Processing states
   if (creator.ingestionStatus === 'processing' || creator.ingestionStatus === 'indexing' || creator.ingestionStatus === 'pending' || creator.ingestionStatus === 'extracting' || creator.ingestionStatus === 'paused') {
     return (
@@ -148,8 +158,50 @@ export function AppSidebar({
 
   const handleRefreshCreator = useCallback(async (e: React.MouseEvent, creator: Creator) => {
     e.stopPropagation();
-    await refreshCreator(creator.channelId);
-  }, [refreshCreator]);
+    
+    // Start polling for progress updates
+    const pollInterval = setInterval(async () => {
+      const { data: updatedChannel } = await supabase
+        .from('channels')
+        .select('ingestion_status, ingestion_progress, indexed_videos, total_videos')
+        .eq('id', creator.id)
+        .single();
+      
+      if (updatedChannel) {
+        onUpdateCreator({
+          ...creator,
+          ingestionStatus: updatedChannel.ingestion_status,
+          ingestionProgress: updatedChannel.ingestion_progress || 0,
+          indexedVideos: updatedChannel.indexed_videos || 0,
+          totalVideos: updatedChannel.total_videos || 0,
+        });
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    const result = await refreshCreator(creator.id);
+    
+    // Stop polling
+    clearInterval(pollInterval);
+    
+    // Final update after refresh completes
+    if (result.success) {
+      const { data: updatedChannel } = await supabase
+        .from('channels')
+        .select('*')
+        .eq('id', creator.id)
+        .single();
+      
+      if (updatedChannel) {
+        onUpdateCreator({
+          ...creator,
+          indexedVideos: updatedChannel.indexed_videos || 0,
+          totalVideos: updatedChannel.total_videos || 0,
+          ingestionStatus: updatedChannel.ingestion_status,
+          ingestionProgress: updatedChannel.ingestion_progress || 0,
+        });
+      }
+    }
+  }, [refreshCreator, onUpdateCreator]);
 
   const handleShareCreator = useCallback(async (e: React.MouseEvent, creator: Creator) => {
     e.stopPropagation();
@@ -397,7 +449,7 @@ export function AppSidebar({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-[13px] truncate flex-1">{creator.name}</p>
-                        {getStatusBadge(creator)}
+                        {getStatusBadge(creator, isRefreshing(creator.id))}
                       </div>
                       <p className="text-2xs text-muted-foreground truncate">
                         {creator.subscribers ? formatSubscribers(creator.subscribers) : (
@@ -421,7 +473,7 @@ export function AppSidebar({
                         onClick={(e) => e.stopPropagation()}
                         className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground hover:bg-sidebar-accent"
                       >
-                        {deletingId === creator.id || isRefreshing(creator.channelId) ? (
+                        {deletingId === creator.id || isRefreshing(creator.id) ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <MoreVertical className="w-3.5 h-3.5" />

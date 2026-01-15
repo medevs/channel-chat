@@ -347,11 +347,19 @@ serve(async (req) => {
         .select('*', { count: 'exact', head: true })
         .eq('channel_id', channelInfo.channel_id);
 
+      // Get the newest video's publish date for last_indexed_at
+      const newestVideoDate = videos.length > 0 
+        ? videos.reduce((latest, video) => {
+            const videoDate = new Date(video.published_at);
+            return videoDate > latest ? videoDate : latest;
+          }, new Date(videos[0].published_at))
+        : new Date();
+
       // Update channel
       await supabase
         .from('channels')
         .update({
-          last_indexed_at: new Date().toISOString(),
+          last_indexed_at: newestVideoDate.toISOString(),
           indexed_videos: actualVideoCount || 0,
           total_videos: channelInfo.total_video_count,
         })
