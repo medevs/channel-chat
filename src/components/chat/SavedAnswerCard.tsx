@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Play, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { MarkdownMessage } from './MarkdownMessage';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -77,9 +78,7 @@ export function SavedAnswerCard({
 
       {/* Answer content */}
       <div className="mb-4 p-3 rounded-lg bg-muted/30">
-        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-          {answer.content}
-        </p>
+        <MarkdownMessage content={answer.content} className="text-sm" />
       </div>
 
       {/* Sources / timestamps - Show all */}

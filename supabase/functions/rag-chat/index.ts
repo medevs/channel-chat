@@ -271,6 +271,30 @@ async function generateWithOpenAI(messages: any[]): Promise<string> {
   return data.choices[0].message.content;
 }
 
+async function streamWithOpenAI(messages: any[]): Promise<ReadableStream> {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages,
+      max_tokens: 600,
+      temperature: 0.2,
+      stream: true,
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`OpenAI chat error: ${error}`);
+  }
+  
+  return response.body!;
+}
+
 serve(async (req) => {
   const requestId = crypto.randomUUID();
   const logger = createLogger('rag-chat', requestId);
@@ -448,9 +472,7 @@ RULES:
       { role: 'user', content: query }
     ];
     
-    const answer = await generateWithOpenAI(messages);
-    
-    // Generate citations
+    // Generate citations first (before streaming)
     const showCitations = shouldShowCitations(questionType, query);
     const citationMap = new Map();
     
@@ -477,28 +499,80 @@ RULES:
     
     const citations = showCitations ? Array.from(citationMap.values()) : [];
     
-    console.log(`Response generated with ${citations.length} citations`);
-    console.log(`========================================\n`);
+    // Stream the response
+    const openaiStream = await streamWithOpenAI(messages);
+    const reader = openaiStream.getReader();
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
     
-    return new Response(JSON.stringify({
-      answer,
-      citations,
-      showCitations,
-      confidence: confidenceLevel,
-      evidence: {
-        chunksUsed: searchResults.length,
-        videosReferenced: videoIds.length,
+    const stream = new ReadableStream({
+      async start(controller) {
+        let fullAnswer = '';
+        
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+            
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+                
+                try {
+                  const parsed = JSON.parse(data);
+                  const content = parsed.choices[0]?.delta?.content || '';
+                  if (content) {
+                    fullAnswer += content;
+                    // Send content chunk
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
+                  }
+                } catch (e) {
+                  // Skip invalid JSON
+                }
+              }
+            }
+          }
+          
+          // Send final metadata
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            done: true,
+            citations,
+            showCitations,
+            confidence: confidenceLevel,
+            evidence: {
+              chunksUsed: searchResults.length,
+              videosReferenced: videoIds.length,
+            },
+            debug: {
+              chunksFound: searchResults.length,
+              videosReferenced: videoIds.length,
+              questionType,
+              confidenceLevel,
+              maxSimilarity,
+            },
+          })}\n\n`));
+          
+          console.log(`Streamed response with ${citations.length} citations`);
+        } catch (err) {
+          console.error('Stream error:', err);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String(err) })}\n\n`));
+        } finally {
+          controller.close();
+        }
       },
-      isRefusal: false,
-      debug: {
-        chunksFound: searchResults.length,
-        videosReferenced: videoIds.length,
-        questionType,
-        confidenceLevel,
-        maxSimilarity,
+    });
+    
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
       },
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
     
   } catch (error) {

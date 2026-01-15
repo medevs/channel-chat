@@ -3,6 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { SourceCard } from "./SourceCard";
+import { MarkdownMessage } from "./MarkdownMessage";
 import { cn } from "@/lib/utils";
 import type { ChatMessage, Creator, ConfidenceLevel } from "@/types/chat";
 
@@ -66,9 +67,13 @@ export function MessageBubble({
               : "bg-chat-bubble-ai text-chat-bubble-ai-foreground rounded-bl-md"
           )}
         >
-          <div className="relative z-10 whitespace-pre-wrap">
-            {message.content}
-          </div>
+          {isAssistant ? (
+            <MarkdownMessage content={message.content} />
+          ) : (
+            <div className="relative z-10 whitespace-pre-wrap">
+              {message.content}
+            </div>
+          )}
         </div>
 
         {/* Assistant-specific elements */}

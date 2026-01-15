@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { SourceCard } from './SourceCard';
+import { MarkdownMessage } from './MarkdownMessage';
 import { EmptyState } from './EmptyState';
 import { VoiceInput } from './VoiceInput';
 import { UsageIndicator } from './UsageIndicator';
@@ -386,7 +387,11 @@ export function ChatArea({
                             : 'bg-chat-bubble-ai text-chat-bubble-ai-foreground rounded-2xl rounded-bl-md'
                         )}
                       >
-                        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                        {message.type === 'ai' ? (
+                          <MarkdownMessage content={message.content} />
+                        ) : (
+                          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+                        )}
                       </div>
                       
                       {/* Save button for AI messages */}
@@ -495,8 +500,8 @@ export function ChatArea({
                 </div>
               ))}
 
-              {/* Typing indicator */}
-              {isTyping && (
+              {/* Typing indicator - only show if no message is currently streaming */}
+              {isTyping && !messages.some(m => m.isTyping) && (
                 <div className="flex gap-2.5 md:gap-3 justify-start animate-fade-in">
                   <Avatar className="w-7 h-7 md:w-8 md:h-8 shrink-0 mt-0.5 ring-2 ring-primary/10">
                     <AvatarImage src={activeCreator.avatarUrl || undefined} alt={activeCreator.name} />

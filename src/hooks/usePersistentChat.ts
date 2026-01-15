@@ -1,9 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { ChatMessage, VideoSource, RagChatResponse } from '@/types/chat';
+import type { ChatMessage, VideoSource } from '@/types/chat';
 import { useAuth } from '@/hooks/useAuth';
-
-const DEBUG_MODE = true;
 
 interface UsePersistentChatOptions {
   channelId: string | null;
@@ -198,89 +196,118 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
       userMessage.id = userMsgId;
     }
 
+    // Create streaming AI message
+    const streamingMessageId = `ai-${Date.now()}`;
+    const streamingMessage: ChatMessage = {
+      id: streamingMessageId,
+      type: 'ai',
+      content: '',
+      sources: [],
+      timestamp: new Date(),
+      isTyping: true,
+    };
+    
+    setMessages(prev => [...prev, streamingMessage]);
+
     try {
-      console.log(`[RAG Chat] Sending query to channel: ${channelId}`);
+      console.log(`[RAG Chat] Sending streaming query to channel: ${channelId}`);
 
-      const { data, error: functionError } = await supabase.functions.invoke('rag-chat', {
-        body: {
-          query,
-          channel_id: channelId,
-          creator_name: creatorName || 'the creator',
-          conversation_history: conversationHistory,
-          user_id: user?.id || null,
-        },
-      });
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
 
-      // Check for limit exceeded response
-      if (data?.limit_exceeded) {
-        const limitMessage: ChatMessage = {
-          id: `ai-${Date.now()}`,
-          type: 'ai',
-          content: data.message || 'Daily message limit reached. Try again tomorrow.',
-          sources: [],
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, limitMessage]);
-        return limitMessage;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      // Call streaming endpoint
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/rag-chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query,
+            channel_id: channelId,
+            creator_name: creatorName || 'the creator',
+            conversation_history: conversationHistory,
+            user_id: user?.id || null,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      if (functionError) {
-        throw new Error(functionError.message);
+      // Read the stream
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let fullContent = '';
+      let finalData: any = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.content) {
+                // Append content
+                fullContent += data.content;
+                setMessages(prev => prev.map(m => 
+                  m.id === streamingMessageId
+                    ? { ...m, content: fullContent }
+                    : m
+                ));
+              }
+              
+              if (data.done) {
+                // Store final metadata
+                finalData = data;
+              }
+            } catch (e) {
+              // Skip invalid JSON
+            }
+          }
+        }
       }
 
-      const response = data as RagChatResponse;
-
-      if (response.error) {
-        throw new Error(response.error);
-      }
-
-      const hasRealData = response.citations && response.citations.length > 0;
-      const chunksFound = response.debug?.chunksFound || 0;
-
-      console.log(`[RAG Chat] Response received - chunks found: ${chunksFound}, citations: ${response.citations?.length || 0}`);
-
-      // Map citations to VideoSource with all timestamp data
-      const sources: VideoSource[] = (response.citations || []).map((citation) => ({
-        videoId: citation.videoId,
-        title: citation.videoTitle,
-        timestamp: citation.timestamp || null,
-        timestampSeconds: citation.startTime || null,
-        endTimeSeconds: citation.endTime || null,
-        thumbnailUrl: citation.thumbnailUrl || undefined,
-        hasTimestamp: citation.hasTimestamp ?? (citation.startTime !== null && citation.startTime !== undefined),
-        chunkId: DEBUG_MODE ? `chunk-${citation.index}` : undefined,
-        similarity: DEBUG_MODE ? citation.similarity : undefined,
-        chunkText: DEBUG_MODE ? citation.text : undefined,
-      }));
-
-      const aiMessage: ChatMessage = {
-        id: `ai-${Date.now()}`,
+      // Update final message with metadata
+      const finalMessage: ChatMessage = {
+        id: streamingMessageId,
         type: 'ai',
-        content: response.answer,
-        sources: hasRealData ? sources : [],
-        showSources: response.showCitations,
+        content: fullContent,
+        sources: finalData?.citations || [],
+        showSources: finalData?.showCitations,
         timestamp: new Date(),
-        // NEW: Confidence and evidence from RAG
-        confidence: response.confidence,
-        evidence: response.evidence,
-        isRefusal: response.isRefusal,
-        debug: DEBUG_MODE ? {
-          chunksFound: response.debug?.chunksFound || response.evidence?.chunksUsed || 0,
-          videosReferenced: response.debug?.videosReferenced || response.evidence?.videosReferenced || 0,
-          isFromDatabase: (response.debug?.chunksFound || response.evidence?.chunksUsed || 0) > 0,
-        } : undefined,
+        confidence: finalData?.confidence,
+        evidence: finalData?.evidence,
+        isTyping: false,
       };
 
-      // Add AI message to state
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => prev.map(m => 
+        m.id === streamingMessageId ? finalMessage : m
+      ));
 
       // Save AI message to DB
-      const aiMsgId = await saveMessage('assistant', response.answer, sources);
+      const aiMsgId = await saveMessage('assistant', fullContent, finalData?.citations || []);
       if (aiMsgId) {
-        aiMessage.id = aiMsgId;
+        setMessages(prev => prev.map(m => 
+          m.id === streamingMessageId ? { ...m, id: aiMsgId } : m
+        ));
       }
 
-      return aiMessage;
+      return finalMessage;
     } catch (err) {
       console.error('[RAG Chat] Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to get response';
@@ -292,19 +319,14 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
         content: `Error: ${errorMessage}. Please try again.`,
         sources: [],
         timestamp: new Date(),
-        debug: DEBUG_MODE ? {
-          chunksFound: 0,
-          videosReferenced: 0,
-          isFromDatabase: false,
-        } : undefined,
       };
 
-      setMessages(prev => [...prev, errorChatMessage]);
+      setMessages(prev => prev.filter(m => m.id !== streamingMessageId).concat(errorChatMessage));
       return errorChatMessage;
     } finally {
       setIsLoading(false);
     }
-  }, [channelId, creatorName, messages, sessionId, user]);
+  }, [channelId, creatorName, messages, sessionId, user, saveMessage]);
 
   const clearHistory = useCallback(async () => {
     if (!sessionId) return;

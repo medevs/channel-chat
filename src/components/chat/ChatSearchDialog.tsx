@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Search, X, MessageSquare, User, Bot, Clock, Globe, Loader2 } from 'lucide-react';
+import { Search, X, MessageSquare, User, Bot, Clock, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 interface SearchResult {
   id: string;
@@ -27,6 +29,7 @@ export function ChatSearchDialog({
   currentChannelId,
   onResultClick,
 }: ChatSearchDialogProps) {
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -41,9 +44,9 @@ export function ChatSearchDialog({
     }
   }, [open]);
 
-  // Mock search function
+  // Real search function with database query
   const performSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
+    if (!searchQuery.trim() || !user) {
       setResults([]);
       setHasSearched(false);
       return;
@@ -52,32 +55,53 @@ export function ChatSearchDialog({
     setIsSearching(true);
     setHasSearched(true);
 
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      // Query chat_messages table with text search
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select(`
+          id,
+          content,
+          role,
+          created_at,
+          session_id,
+          chat_sessions!inner(
+            channel_id,
+            channels!inner(
+              channel_name,
+              avatar_url
+            )
+          )
+        `)
+        .ilike('content', `%${searchQuery}%`)
+        .order('created_at', { ascending: false })
+        .limit(20);
 
-    // Mock results
-    const mockResults: SearchResult[] = [
-      {
-        id: '1',
-        channelId: currentChannelId || 'channel1',
-        role: 'user',
-        matchedText: `How do I ${searchQuery}?`,
-        createdAt: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-        creatorName: 'Test Creator',
-      },
-      {
-        id: '2',
-        channelId: currentChannelId || 'channel1',
-        role: 'assistant',
-        matchedText: `To ${searchQuery}, you need to follow these steps...`,
-        createdAt: new Date(Date.now() - 1000 * 60 * 25), // 25 minutes ago
-        creatorName: 'Test Creator',
+      if (error) {
+        console.error('[Search] Error:', error);
+        setResults([]);
+        return;
       }
-    ];
 
-    setResults(mockResults);
-    setIsSearching(false);
-  }, [currentChannelId]);
+      // Map database results to SearchResult format
+      const searchResults: SearchResult[] = (data || []).map((msg: any) => ({
+        id: msg.id,
+        channelId: msg.chat_sessions.channel_id,
+        role: msg.role as 'user' | 'assistant',
+        matchedText: msg.content,
+        createdAt: new Date(msg.created_at),
+        creatorName: msg.chat_sessions.channels.channel_name,
+        creatorAvatar: msg.chat_sessions.channels.avatar_url,
+      }));
+
+      setResults(searchResults);
+    } catch (err) {
+      console.error('[Search] Exception:', err);
+      setResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [user]);
 
   // Debounced search
   useEffect(() => {
