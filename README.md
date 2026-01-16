@@ -196,15 +196,13 @@ TEST_USER_ID=your-test-user-id
 
 ### Edge Function Secrets (Supabase Dashboard)
 
-Configure these in Supabase Dashboard → Project Settings → Edge Functions → Secrets:
+Configure these in Supabase Dashboard → Project Settings → Edge Functions → Secrets, OR use the CLI command in the Database Setup section:
 
 ```
 OPENAI_API_KEY=your-openai-api-key
 YOUTUBE_API_KEY=your-youtube-api-key
 TRANSCRIPT_API_KEY=your-transcript-api-key
 ```
-
-**Note**: Edge Functions need these secrets configured separately in the Supabase Dashboard, not in `.env.local`.
 
 ---
 
@@ -237,7 +235,27 @@ pnpm dlx supabase db push
 
 ```bash
 # Generate types from remote database schema
-pnpm dlx supabase gen types typescript --remote > src/types/database.ts
+pnpm dlx supabase gen types typescript --linked > src/types/database.ts
+```
+
+### 5. Configure Edge Function Secrets
+
+Set the required API keys as Edge Function secrets:
+
+```bash
+# Set secrets from your .env.local file
+source .env.local
+pnpm dlx supabase secrets set \
+  OPENAI_API_KEY="$OPENAI_API_KEY" \
+  YOUTUBE_API_KEY="$YOUTUBE_API_KEY" \
+  TRANSCRIPT_API_KEY="$TRANSCRIPT_API_KEY"
+```
+
+**Alternative**: You can also set these manually in Supabase Dashboard → Project Settings → Edge Functions → Secrets.
+
+**Verify secrets are set**:
+```bash
+pnpm dlx supabase secrets list
 ```
 
 ### Database Schema Overview
