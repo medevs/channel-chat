@@ -160,9 +160,7 @@ export function VoiceConversations({ onBack }: VoiceConversationsProps = {}) {
                           key={`${msg.timestamp}-${idx}`}
                           className={cn(
                             "flex gap-2 items-start",
-                            msg.role === "user"
-                              ? "justify-end flex-row-reverse"
-                              : "justify-start",
+                            msg.role === "user" && "ml-auto flex-row-reverse",
                           )}
                         >
                           <Avatar className="w-7 h-7 flex-shrink-0">
@@ -194,13 +192,15 @@ export function VoiceConversations({ onBack }: VoiceConversationsProps = {}) {
                               className={cn(
                                 "font-medium text-xs mb-1",
                                 msg.role === "user"
-                                  ? "text-primary-foreground/80"
+                                  ? "text-primary-foreground/80 text-right"
                                   : "text-muted-foreground",
                               )}
                             >
                               {msg.role === "user" ? "You" : conv.creator_name}
                             </div>
-                            <div>{msg.content}</div>
+                            <div className={cn(
+                              msg.role === "user" && "text-right"
+                            )}>{msg.content}</div>
                           </div>
                         </div>
                       ))}

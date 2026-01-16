@@ -190,7 +190,6 @@ export function VoiceChatModal({
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-3">
             {conversationHistory.map((msg, idx) => {
-              // Use timestamp + role as unique key to prevent duplicates
               const uniqueKey = `${msg.role}-${msg.timestamp}-${idx}`;
               return (
                 <TranscriptBubble
@@ -287,8 +286,7 @@ function TranscriptBubble({
     <div
       className={cn(
         "flex gap-3 items-start",
-        isUser && "justify-end flex-row-reverse",
-        !isUser && "justify-start",
+        isUser && "ml-auto flex-row-reverse",
       )}
     >
       {/* Avatar */}
@@ -312,7 +310,10 @@ function TranscriptBubble({
           isLive && "animate-pulse",
         )}
       >
-        <div className="flex items-center gap-2 mb-1">
+        <div className={cn(
+          "flex items-center gap-2 mb-1",
+          isUser && "justify-end"
+        )}>
           <span
             className={cn(
               "text-[10px] font-medium",
@@ -337,7 +338,7 @@ function TranscriptBubble({
         <p
           className={cn(
             "text-sm leading-relaxed",
-            isUser ? "text-primary-foreground" : "text-foreground",
+            isUser ? "text-primary-foreground text-right" : "text-foreground",
           )}
         >
           {text}
