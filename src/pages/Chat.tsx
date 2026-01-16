@@ -60,6 +60,7 @@ export function Chat() {
     setActiveVideo(null);
     setShowSettings(false);
     setShowSaved(false);
+    setShowVoiceConversations(false);
     if (isMobile) setSidebarOpen(false);
   }, [isMobile]);
 
@@ -69,6 +70,7 @@ export function Chat() {
     setActiveVideo(null);
     setShowSettings(false);
     setShowSaved(false);
+    setShowVoiceConversations(false);
     if (isMobile) setSidebarOpen(false);
   }, [isMobile, addCreator]);
 
@@ -134,6 +136,7 @@ export function Chat() {
       setActiveCreatorId(creator.id);
       setShowSettings(false);
       setShowSaved(false);
+      setShowVoiceConversations(false);
       setHighlightMessageId(messageId);
       if (isMobile) setSidebarOpen(false);
       
