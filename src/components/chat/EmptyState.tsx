@@ -1,4 +1,4 @@
-import { MessageSquare, UserPlus, Sparkles } from 'lucide-react';
+import { UserPlus, Sparkles } from 'lucide-react';
 
 interface EmptyStateProps {
   type: 'no-creator' | 'no-messages';

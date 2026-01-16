@@ -5,16 +5,7 @@ import { ConfidenceBadge } from "./ConfidenceBadge";
 import { SourceCard } from "./SourceCard";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { cn } from "@/lib/utils";
-import type { ChatMessage, Creator, ConfidenceLevel } from "@/types/chat";
-
-// Utility function to create confidence level object
-const createConfidenceLevel = (confidence: string, evidenceCount?: number, videoCount?: number): ConfidenceLevel => ({
-  level: confidence as 'high' | 'medium' | 'low' | 'not_covered',
-  label: confidence.charAt(0).toUpperCase() + confidence.slice(1),
-  description: `${confidence} confidence response`,
-  evidenceCount,
-  videoCount,
-});
+import type { ChatMessage, Creator } from "@/types/chat";
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -50,7 +41,7 @@ export function MessageBubble({
       {/* Avatar */}
       {isAssistant && (
         <Avatar className="w-8 h-8 shrink-0 ring-2 ring-primary/10">
-          <AvatarImage src={creator?.avatar} alt={creator?.name} />
+          <AvatarImage src={creator?.avatar ?? undefined} alt={creator?.name ?? 'AI'} />
           <AvatarFallback className="font-display text-xs bg-primary/10 text-primary">
             {creator?.name?.charAt(0) || 'AI'}
           </AvatarFallback>
@@ -82,11 +73,7 @@ export function MessageBubble({
             {/* Confidence Badge */}
             {message.confidence && (
               <ConfidenceBadge 
-                confidence={createConfidenceLevel(
-                  message.confidence,
-                  message.sources?.length,
-                  message.sources ? new Set(message.sources.map(s => s.id)).size : undefined
-                )}
+                confidence={message.confidence}
                 evidenceCount={message.sources?.length}
                 videoCount={message.sources ? new Set(message.sources.map(s => s.id)).size : undefined}
               />
@@ -120,9 +107,9 @@ export function MessageBubble({
                 <div className="grid gap-2">
                   {message.sources.slice(0, 3).map((source) => (
                     <SourceCard
-                      key={source.id}
+                      key={source.videoId}
                       source={source}
-                      onClick={() => onSourceClick(source.id, source.timestampSeconds || undefined)}
+                      onClick={() => onSourceClick(source.videoId, source.timestampSeconds ?? undefined)}
                     />
                   ))}
                 </div>

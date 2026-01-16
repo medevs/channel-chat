@@ -16,15 +16,6 @@ interface DbChatSession {
   updated_at: string;
 }
 
-interface DbChatMessage {
-  id: string;
-  session_id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  sources: VideoSource[] | null;
-  created_at: string;
-}
-
 interface ConversationMessage {
   role: 'user' | 'assistant';
   content: string;

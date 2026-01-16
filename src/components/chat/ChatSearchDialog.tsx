@@ -26,7 +26,6 @@ interface ChatSearchDialogProps {
 export function ChatSearchDialog({
   open,
   onOpenChange,
-  currentChannelId,
   onResultClick,
 }: ChatSearchDialogProps) {
   const { user } = useAuth();

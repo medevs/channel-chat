@@ -1,17 +1,6 @@
 // Re-export all types from chat.ts for compatibility
 export * from '@/types/chat';
 
-// Additional types that might be needed
-export type ConfidenceLevel = 'high' | 'medium' | 'low' | 'not_covered';
-
-export interface VideoPlayerState {
-  isPlaying: boolean;
-  currentTime: number;
-  duration: number;
-  volume: number;
-  muted: boolean;
-}
-
 // Video import mode options
 export type VideoImportMode = 'latest' | 'oldest' | 'all';
 

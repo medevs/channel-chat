@@ -26,7 +26,7 @@ interface ChatAreaProps {
   activeVideoId?: string;
   activeTimestamp?: string;
   onSearchResultClick?: (channelId: string, messageId: string) => void;
-  highlightMessageId?: string | null;
+  highlightMessageId?: string;
 }
 
 export function ChatArea({

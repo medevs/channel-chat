@@ -33,13 +33,13 @@ export function Auth() {
   const validateForm = () => {
     const emailResult = emailSchema.safeParse(email);
     if (!emailResult.success) {
-      setError(emailResult.error.errors[0].message);
+      setError(emailResult.error.issues[0].message);
       return false;
     }
 
     const passwordResult = passwordSchema.safeParse(password);
     if (!passwordResult.success) {
-      setError(passwordResult.error.errors[0].message);
+      setError(passwordResult.error.issues[0].message);
       return false;
     }
 

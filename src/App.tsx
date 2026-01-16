@@ -9,7 +9,6 @@ import { ProtectedRoute, AuthenticatedRoute } from "@/components";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "next-themes";
-import "./App.css";
 
 function App() {
   return (

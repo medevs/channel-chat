@@ -75,15 +75,6 @@ export function AddCreatorModal({ isOpen, onClose, onAddCreator }: AddCreatorMod
     setUpgradeDialog({ isOpen: false, limitInfo: null });
   };
 
-  const formatSubscribers = (count: string | null): string => {
-    if (!count) return 'Unknown';
-    const num = parseInt(count, 10);
-    if (isNaN(num)) return count;
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return count;
-  };
-
   const setImportMode = useCallback((mode: VideoImportMode) => {
     setImportSettings(prev => ({ ...prev, mode }));
   }, []);

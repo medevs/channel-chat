@@ -11,7 +11,7 @@ interface ConfidenceBadgeProps {
 }
 
 const getConfidenceInfo = (confidence: ConfidenceLevel) => {
-  switch (confidence.level) {
+  switch (confidence) {
     case 'high':
       return {
         icon: CheckCircle2,
