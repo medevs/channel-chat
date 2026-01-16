@@ -74,13 +74,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     if (error) throw error;
     
-    // When email confirmations are disabled and user exists, Supabase returns:
-    // - data.user: existing user object
-    // - data.session: null (no new session created)
-    // This indicates the user already exists
-    if (data.user && !data.session) {
-      throw new Error("An account with this email already exists. Please sign in instead.");
-    }
+    // When email confirmations are enabled, Supabase creates the user and returns:
+    // - data.user: new user object
+    // - data.session: null (waiting for email confirmation)
+    // This is normal behavior, not an error
   };
 
   const signIn = async (email: string, password: string) => {
