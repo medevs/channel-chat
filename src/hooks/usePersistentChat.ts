@@ -302,8 +302,8 @@ export function usePersistentChat({ channelId, creatorName }: UsePersistentChatO
         m.id === streamingMessageId ? finalMessage : m
       ));
 
-      // Save AI message to DB
-      const aiMsgId = await saveMessage('assistant', fullContent, finalData?.citations || []);
+      // Save AI message to DB with mapped sources (not raw citations)
+      const aiMsgId = await saveMessage('assistant', fullContent, sources);
       if (aiMsgId) {
         setMessages(prev => prev.map(m => 
           m.id === streamingMessageId ? { ...m, id: aiMsgId } : m
