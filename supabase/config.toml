@@ -396,8 +396,8 @@ verify_jwt = false  # Internal function only, called by other Edge Functions
 [functions.run-pipeline]
 verify_jwt = false  # Internal function called by extract-transcripts
 
-[functions.test-function]
-verify_jwt = true
+[functions.voice-realtime]
+verify_jwt = false  # Real-time voice chat with AI mentors
 
 [functions.retry-video-processing]
-verify_jwt = true
+verify_jwt = false  # Uses manual auth with auth.getUser()
