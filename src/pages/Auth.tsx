@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { MessageSquare, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { MessageSquare, Loader2, AlertCircle, ArrowLeft, Mail, CheckCircle } from 'lucide-react';
 import { z } from 'zod';
+import { toast } from 'sonner';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -19,6 +20,7 @@ export function Auth() {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
   
   const { user, loading, signIn, signUp } = useAuth();
   const navigate = useNavigate();
@@ -57,6 +59,12 @@ export function Auth() {
     try {
       if (isSignUp) {
         await signUp(email, password, displayName || undefined);
+        // Show confirmation message and toast
+        setShowEmailConfirmation(true);
+        toast.success('Account created!', {
+          description: 'Please check your email to confirm your account.',
+          icon: <Mail className="w-4 h-4" />,
+        });
       } else {
         await signIn(email, password);
       }
@@ -108,6 +116,19 @@ export function Auth() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {showEmailConfirmation && (
+              <div className="flex items-start gap-3 p-4 rounded-lg bg-primary/10 border border-primary/20">
+                <CheckCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-1">
+                  <p className="text-sm font-medium">Check your email</p>
+                  <p className="text-sm text-muted-foreground">
+                    We've sent a confirmation link to <strong>{email}</strong>. 
+                    Please check your inbox (and spam folder) to verify your account.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {isSignUp && (
               <div className="space-y-2">
                 <Label htmlFor="displayName">Display Name (optional)</Label>
@@ -179,6 +200,7 @@ export function Auth() {
               onClick={() => {
                 setIsSignUp(!isSignUp);
                 setError(null);
+                setShowEmailConfirmation(false);
               }}
               className="text-primary hover:underline font-medium"
             >
