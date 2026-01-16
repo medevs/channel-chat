@@ -97,9 +97,7 @@ export function Chat() {
     if (isMobile) setSidebarOpen(false);
   }, [isMobile]);
 
-  const handleCloseSettings = useCallback(() => {
-    setShowSettings(false);
-  }, []);
+
 
   const handleOpenSaved = useCallback(() => {
     setShowSaved(true);
@@ -225,9 +223,9 @@ export function Chat() {
                 activeCreator={activeCreator}
                 onTimestampClick={handleTimestampClick}
                 activeVideoId={activeVideo?.videoId}
-                activeTimestamp={activeVideo?.timestamp}
+                activeTimestamp={activeVideo?.timestamp === null ? undefined : activeVideo?.timestamp}
                 onSearchResultClick={handleSearchResultClick}
-                highlightMessageId={highlightMessageId}
+                highlightMessageId={highlightMessageId ?? undefined}
               />
             )}
           </div>
