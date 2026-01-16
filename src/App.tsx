@@ -3,6 +3,7 @@ import { Landing } from "@/pages/Landing";
 import { Auth } from "@/pages/Auth";
 import { Chat } from "@/pages/Chat";
 import CreatorProfile from "@/pages/CreatorProfile";
+import { VoiceConversations } from "@/pages/VoiceConversations";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute, AuthenticatedRoute } from "@/components";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -46,6 +47,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <CreatorProfile />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/voice-conversations" 
+                element={
+                  <ProtectedRoute>
+                    <VoiceConversations />
                   </ProtectedRoute>
                 } 
               />

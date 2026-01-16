@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, Plus, Settings, LogOut, ChevronLeft, X, Loader2, Trash2, MoreVertical, Bookmark, User, RefreshCw, Share2 } from 'lucide-react';
+import { MessageSquare, Plus, Settings, LogOut, ChevronLeft, X, Loader2, Trash2, MoreVertical, Bookmark, User, RefreshCw, Share2, Mic } from 'lucide-react';
 import type { Creator } from '@/types/chat';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -120,7 +120,9 @@ interface AppSidebarProps {
   onUpdateCreator: (creator: Creator) => void;
   onOpenSettings: () => void;
   onOpenSaved: () => void;
+  onOpenVoiceConversations?: () => void;
   showSaved?: boolean;
+  showVoiceConversations?: boolean;
   isOpen: boolean;
   onToggle: () => void;
   isMobile: boolean;
@@ -136,7 +138,9 @@ export function AppSidebar({
   onUpdateCreator,
   onOpenSettings,
   onOpenSaved,
+  onOpenVoiceConversations,
   showSaved,
+  showVoiceConversations,
   isOpen,
   onToggle,
   isMobile,
@@ -148,7 +152,18 @@ export function AppSidebar({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const pollIntervalRef = useRef<number | null>(null);
   const isCollapsed = !isOpen && !isMobile;
+
+  // Cleanup polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   const handleViewProfile = useCallback((e: React.MouseEvent, creatorId: string) => {
     e.stopPropagation();
@@ -159,8 +174,13 @@ export function AppSidebar({
   const handleRefreshCreator = useCallback(async (e: React.MouseEvent, creator: Creator) => {
     e.stopPropagation();
     
+    // Clear any existing polling interval
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+    
     // Start polling for progress updates
-    const pollInterval = setInterval(async () => {
+    pollIntervalRef.current = window.setInterval(async () => {
       const { data: updatedChannel } = await supabase
         .from('channels')
         .select('ingestion_status, ingestion_progress, indexed_videos, total_videos')
@@ -181,7 +201,10 @@ export function AppSidebar({
     const result = await refreshCreator(creator.id);
     
     // Stop polling
-    clearInterval(pollInterval);
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
     
     // Final update after refresh completes
     if (result.success) {
@@ -389,6 +412,30 @@ export function AppSidebar({
               </button>
             </TooltipTrigger>
             {isCollapsed && <TooltipContent side="right">Saved Answers</TooltipContent>}
+          </Tooltip>
+        </div>
+
+        {/* Voice Conversations */}
+        <div className="mb-2">
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={onOpenVoiceConversations}
+                className={cn(
+                  'w-full flex items-center gap-3 rounded-xl transition-all duration-200',
+                  isCollapsed ? 'p-2 justify-center' : 'p-2.5',
+                  showVoiceConversations
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/60'
+                )}
+              >
+                <div className={cn('flex items-center justify-center', isCollapsed ? 'w-10 h-10' : 'w-9 h-9')}>
+                  <Mic className="w-4 h-4" />
+                </div>
+                {!isCollapsed && <span className="text-[13px] font-medium">Voice Conversations</span>}
+              </button>
+            </TooltipTrigger>
+            {isCollapsed && <TooltipContent side="right">Voice Conversations</TooltipContent>}
           </Tooltip>
         </div>
 

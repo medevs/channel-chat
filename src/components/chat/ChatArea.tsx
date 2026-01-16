@@ -15,6 +15,7 @@ import { UsageIndicator } from './UsageIndicator';
 import { usePersistentChat } from '@/hooks/usePersistentChat';
 import { useSavedAnswers } from '@/hooks/useSavedAnswers';
 import { ChatSearchDialog } from './ChatSearchDialog';
+import { VoiceChatTrigger } from './VoiceChat';
 
 // Debug mode flag - shows chunk IDs and similarity scores
 const DEBUG_MODE = true;
@@ -247,6 +248,11 @@ export function ChatArea({
               <Trash2 className="w-4 h-4" />
             </Button>
           )}
+          <VoiceChatTrigger
+            channelId={activeCreator.id}
+            creatorName={activeCreator.name}
+            creatorAvatar={activeCreator.avatarUrl}
+          />
           <Badge variant="secondary" className="hidden md:inline-flex text-2xs font-medium shrink-0">
             {formatSubscribers(activeCreator.subscribers)}
           </Badge>

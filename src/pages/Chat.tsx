@@ -6,6 +6,7 @@ import { AppSidebar } from '@/components/chat/AppSidebar';
 import { ChatArea } from '@/components/chat/ChatArea';
 import { VideoPanel } from '@/components/chat/VideoPanel';
 import { SavedAnswers } from '@/components/chat/SavedAnswers';
+import { VoiceConversations } from '@/pages/VoiceConversations';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { Button } from '@/components/ui/button';
 import { Menu, Loader2 } from 'lucide-react';
@@ -18,6 +19,7 @@ export function Chat() {
   const [activeVideo, setActiveVideo] = useState<ActiveVideo | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
+  const [showVoiceConversations, setShowVoiceConversations] = useState(false);
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
   
   const breakpoint = useBreakpoint();
@@ -100,12 +102,25 @@ export function Chat() {
   const handleOpenSaved = useCallback(() => {
     setShowSaved(true);
     setShowSettings(false);
+    setShowVoiceConversations(false);
     setActiveCreatorId(null);
     if (isMobile) setSidebarOpen(false);
   }, [isMobile]);
 
   const handleCloseSaved = useCallback(() => {
     setShowSaved(false);
+  }, []);
+
+  const handleOpenVoiceConversations = useCallback(() => {
+    setShowVoiceConversations(true);
+    setShowSaved(false);
+    setShowSettings(false);
+    setActiveCreatorId(null);
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile]);
+
+  const handleCloseVoiceConversations = useCallback(() => {
+    setShowVoiceConversations(false);
   }, []);
 
   const handleToggleSidebar = useCallback(() => {
@@ -178,7 +193,9 @@ export function Chat() {
         onUpdateCreator={updateCreator}
         onOpenSettings={handleOpenSettings}
         onOpenSaved={handleOpenSaved}
+        onOpenVoiceConversations={handleOpenVoiceConversations}
         showSaved={showSaved}
+        showVoiceConversations={showVoiceConversations}
         isOpen={sidebarOpen}
         onToggle={handleToggleSidebar}
         isMobile={isMobile}
@@ -198,6 +215,8 @@ export function Chat() {
                 onBack={handleCloseSaved}
                 onTimestampClick={handleTimestampClick}
               />
+            ) : showVoiceConversations ? (
+              <VoiceConversations onBack={handleCloseVoiceConversations} />
             ) : (
               <ChatArea
                 activeCreator={activeCreator}
