@@ -271,30 +271,18 @@ The database consists of 15 tables organized into logical groups:
 
 ## 🔧 Edge Functions
 
-ChannelChat uses 11 Supabase Edge Functions running on Deno 2. **IMPORTANT**: Most functions have `verify_jwt = false` because they handle authentication internally or are internal functions.
+ChannelChat uses 6 Supabase Edge Functions running on Deno 2.
 
-### Production Functions
+| Function | Purpose |
+|----------|----------|
+| `ingest-youtube-channel` | Ingests YouTube channel data and video metadata |
+| `extract-transcripts` | Extracts transcripts using TranscriptAPI.com |
+| `run-pipeline` | Generates embeddings and processes transcripts |
+| `rag-chat` | Handles AI chat with RAG and streaming responses |
+| `voice-realtime` | Real-time voice chat with AI mentors |
+| `retry-video-processing` | Retries failed video processing |
 
-| Function | JWT | Purpose |
-|----------|-----|---------|
-| `ingest-youtube-channel` | ❌ | Ingests YouTube channel data and video metadata |
-| `extract-transcripts` | ❌ | Extracts transcripts using TranscriptAPI.com |
-| `run-pipeline` | ❌ | Generates embeddings and processes transcripts |
-| `rag-chat` | ❌ | Handles AI chat with RAG and streaming responses |
-| `voice-realtime` | ❌ | Real-time voice chat with AI mentors |
-| `retry-video-processing` | ✅ | Retries failed video processing |
-
-### Development Functions
-
-| Function | JWT | Purpose |
-|----------|-----|---------|
-| `test-function` | ✅ | Testing Edge Function deployment |
-| `test-api-keys` | ✅ | Validates API keys |
-| `test-ingestion-simple` | ✅ | Simple ingestion test |
-| `debug-ingestion` | ✅ | Debug ingestion pipeline |
-| `update-channel-status` | ✅ | Manually update channel status |
-
-**Why JWT is disabled**: Functions like `rag-chat` and `ingest-youtube-channel` handle authentication internally using Supabase's `auth.getUser()` method. This allows for more flexible authentication logic and better error handling.
+**Authentication**: All functions use `verify_jwt = false` and handle authentication internally using Supabase's `auth.getUser()` method for flexible authentication logic and better error handling.
 
 ### Deploy Edge Functions
 
@@ -415,6 +403,7 @@ pnpm dlx supabase functions logs function_name
    - Enable Email authentication
    - Set password requirements (minimum 12 characters)
    - Configure redirect URLs for your production domain
+   - **Important**: Email confirmations are enabled by default. Confirmation emails from Supabase's default service (`noreply@mail.app.supabase.io`) often land in spam folders. Check spam/junk if you don't receive the confirmation email within a few minutes.
 
 ---
 
