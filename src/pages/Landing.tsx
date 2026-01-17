@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { MessageSquare, Youtube, Sparkles, Zap, Shield, BookOpen, DollarSign, Clock, CheckCircle, Star, Users, TrendingUp, ArrowRight, Mic, Bookmark, Search, Brain, Target, Headphones } from 'lucide-react';
+import { MessageSquare, Youtube, Sparkles, Zap, Shield, BookOpen, DollarSign, Clock, CheckCircle, Star, TrendingUp, ArrowRight, Mic, Bookmark, Search, Brain, Target } from 'lucide-react';
 
 export function Landing() {
   const { user, loading } = useAuth();
