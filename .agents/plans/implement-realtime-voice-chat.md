@@ -1,4 +1,4 @@
-# Feature: Real-Time Voice Chat with Creators
+# Feature: Real-Time Voice Chat with AI Mentors
 
 ## Feature Description
 
@@ -34,19 +34,13 @@ Implement a complete voice chat system that:
 
 ## CONTEXT REFERENCES
 
-### Relevant Codebase Files - IMPORTANT: YOU MUST READ THESE FILES BEFORE IMPLEMENTING!
-
-**From Creator Insights Hub (Reference Implementation):**
-- `/mnt/c/Users/ahmed/OneDrive/Documents/apps/ChannelChat/creator-insights-hub/src/components/VoiceChat.tsx` - Complete voice chat UI component with modal, transcript display, and waveform visualization
-- `/mnt/c/Users/ahmed/OneDrive/Documents/apps/ChannelChat/creator-insights-hub/src/hooks/useVoiceSession.ts` - Voice session management hook with WebRTC, ephemeral token handling, and transcript tracking
-- `/mnt/c/Users/ahmed/OneDrive/Documents/apps/ChannelChat/creator-insights-hub/supabase/functions/voice-realtime/index.ts` - Edge Function for OpenAI Realtime API integration with RAG context
-- `/mnt/c/Users/ahmed/OneDrive/Documents/apps/ChannelChat/creator-insights-hub/supabase/migrations/20260114111432_1f5cd732-2408-45a8-aaa4-8d6ac2a51665.sql` - Database schema reference
+### Relevant Codebase Files
 
 **Existing ChannelChat Files to Integrate With:**
-- `/mnt/c/Users/ahmed/OneDrive/Documents/apps/ChannelChat/src/components/chat/ChatArea.tsx` - Main chat interface where voice trigger will be added
-- `/mnt/c/Users/ahmed/OneDrive/Documents/apps/ChannelChat/src/components/chat/AppSidebar.tsx` - Sidebar where voice conversations link will be added
-- `/mnt/c/Users/ahmed/OneDrive/Documents/apps/ChannelChat/src/hooks/useRagChat.ts` - Existing RAG chat hook for pattern reference
-- `/mnt/c/Users/ahmed/OneDrive/Documents/apps/ChannelChat/supabase/functions/_shared/abuse-protection.ts` - Shared utilities for rate limiting
+- `src/components/chat/ChatArea.tsx` - Main chat interface where voice trigger will be added
+- `src/components/chat/AppSidebar.tsx` - Sidebar where voice conversations link will be added
+- `src/hooks/useRagChat.ts` - Existing RAG chat hook for pattern reference
+- `supabase/functions/_shared/abuse-protection.ts` - Shared utilities for rate limiting
 
 ### New Files to Create
 
@@ -65,7 +59,7 @@ Implement a complete voice chat system that:
 **Database Migrations:**
 - `supabase/migrations/YYYYMMDDHHMMSS_add_voice_conversations.sql` - Voice conversations table and RLS policies
 
-### Relevant Documentation - YOU SHOULD READ THESE BEFORE IMPLEMENTING!
+### Relevant Documentation
 
 - [OpenAI Realtime API Documentation](https://platform.openai.com/docs/guides/realtime)
   - Specific section: Ephemeral token creation and WebRTC setup
@@ -255,7 +249,7 @@ CREATE POLICY "Users can delete their own voice conversations"
 ### Task 2: CREATE Voice Realtime Edge Function
 
 - **IMPLEMENT**: OpenAI Realtime API integration with RAG context
-- **PATTERN**: Mirror `creator-insights-hub/supabase/functions/voice-realtime/index.ts`
+- **PATTERN**: Follow existing Edge Function patterns in `supabase/functions/`
 - **IMPORTS**: `@supabase/supabase-js`, abuse-protection utilities
 - **GOTCHA**: Use `gpt-4o-mini-realtime-preview-2024-12-17` model for cost savings
 - **VALIDATE**: `pnpm dlx supabase functions deploy voice-realtime`
@@ -273,7 +267,7 @@ Key implementation points:
 ### Task 3: CREATE useVoiceSession Hook
 
 - **IMPLEMENT**: Voice session management with WebRTC
-- **PATTERN**: Mirror `creator-insights-hub/src/hooks/useVoiceSession.ts`
+- **PATTERN**: Follow existing hook patterns in `src/hooks/`
 - **IMPORTS**: `@/lib/supabase`, `@/contexts/AuthContext`, `sonner`
 - **GOTCHA**: Proper cleanup of WebRTC connections and media streams
 - **VALIDATE**: Test in browser console with `console.log` statements
@@ -292,7 +286,7 @@ Key implementation points:
 ### Task 4: CREATE VoiceChat Component
 
 - **IMPLEMENT**: Voice chat modal UI with transcript display
-- **PATTERN**: Mirror `creator-insights-hub/src/components/VoiceChat.tsx`
+- **PATTERN**: Follow existing component patterns in `src/components/chat/`
 - **IMPORTS**: shadcn/ui components, `useVoiceSession` hook, lucide-react icons
 - **GOTCHA**: Auto-scroll transcript area as new messages arrive
 - **VALIDATE**: Visual inspection in browser

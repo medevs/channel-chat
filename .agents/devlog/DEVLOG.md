@@ -74,6 +74,114 @@
 - **Playwright**: E2E testing automation without local installation
 - **Filesystem**: Enhanced project file access and navigation
 
+## 🔄 Workflow in Practice
+
+### Daily Development Pattern
+```
+1. Start session: @prime (load project context)
+   - Later evolved: Manual context selection with /context add
+2. Plan feature: @plan-feature "feature name"
+3. Implement: @execute with backend-agent or frontend-agent
+4. Review: @code-review before committing
+5. Fix issues: @code-review-fix (targeted fixes from review)
+6. Commit: @git-commit (generates conventional commit message)
+7. Log progress: @add-to-devlog (at the end of the day)
+```
+
+### Workflow Evolution
+**Early Days (Day 0-3):**
+- Used `@prime` to load full project context
+- Comprehensive but token-heavy
+
+**Later Days (Day 4-9):**
+- Switched to manual context: `/context add specific-files`
+- More targeted, efficient context management
+- Only load files relevant to current task
+
+### Agent Usage
+- **backend-agent**: Edge Functions, database migrations, API integrations
+  - Used with Context7 for Supabase/Deno docs
+  - Invoked: `kiro-cli --agent backend-agent`
+  
+- **frontend-agent**: React components, UI/UX, styling
+  - Used with Context7 for React/Tailwind docs
+  - Invoked: `kiro-cli --agent frontend-agent`
+  
+- **quality-agent**: Testing, code review, bug fixes
+  - Used with Playwright for E2E tests
+  - Invoked: `kiro-cli --agent quality-agent`
+
+### Real Workflow Examples
+
+**Feature Development:**
+```bash
+# 1. Plan the feature
+@plan-feature "voice chat with AI mentors"
+
+# 2. Switch to backend agent for Edge Function
+kiro-cli --agent backend-agent
+@execute "implement voice-realtime Edge Function"
+
+# 3. Switch to frontend agent for UI
+kiro-cli --agent frontend-agent
+@execute "create VoiceChat modal component"
+
+# 4. Review and fix
+@code-review
+@code-review-fix  # Address issues found in review
+
+# 5. Commit
+@git-commit
+```
+
+**Bug Fixing:**
+```bash
+# 1. Analyze the issue
+@debug "duplicate messages in voice chat"
+
+# 2. Implement fix
+@implement-fix
+
+# 3. Root cause analysis
+@rca "why were messages duplicating?"
+
+# 4. Review fix
+@code-review-fix
+
+# 5. Commit with proper message
+@git-commit
+```
+
+**Code Maintenance:**
+```bash
+# 1. Audit codebase
+@audit "check for unused code"
+
+# 2. Clean up
+@cleanup
+
+# 3. Refactor if needed
+@refactor "optimize database queries"
+
+# 4. Review changes
+@code-review
+```
+
+### Steering Documents Usage
+- **Loaded automatically** by agents via `resources` field
+- **product.md**: Referenced for feature alignment
+- **tech.md**: Enforces coding standards and best practices
+- **bug-fixing-methodology.md**: Guides systematic debugging
+- **postgres-pro.md**: Used during database optimization
+
+### MCP Integration in Action
+- **Context7**: `@execute` automatically queries docs for React/Supabase/Deno
+- **Supabase MCP**: Direct database queries during development
+- **Playwright MCP**: E2E testing without local installation
+- **Filesystem**: Enhanced file navigation and search
+
+---
+
 ## Day 0 - 2026-01-08 - Planning & Kiro CLI Mastery [6h]
 
 ### 📋 Daily Summary
