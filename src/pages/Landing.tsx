@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { MessageSquare, Youtube, Sparkles, Zap, Shield, BookOpen, DollarSign, Clock, CheckCircle, Star, Users, TrendingUp, ArrowRight } from 'lucide-react';
+import { MessageSquare, Youtube, Sparkles, Zap, Shield, BookOpen, DollarSign, Clock, CheckCircle, Star, Users, TrendingUp, ArrowRight, Mic, Bookmark, Search, Brain, Target, Headphones } from 'lucide-react';
 
 export function Landing() {
   const { user, loading } = useAuth();
@@ -54,16 +54,16 @@ export function Landing() {
         <div className="max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
             <Sparkles className="w-4 h-4" />
-            AI-Powered Creator Chat
+            AI-Powered Voice & Text Mentorship
           </div>
           
           <h1 className="font-display text-4xl md:text-6xl font-bold text-foreground mb-6 leading-tight">
-            Chat with Any YouTube Creator's Knowledge
+            Your Personal AI Mentor from Any YouTube Creator
           </h1>
           
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Add your favorite YouTube channels and ask questions about their content. 
-            Get instant answers with source citations and timestamps.
+            Chat via voice or text with AI trained on your favorite creators' content. 
+            Get confidence-backed answers with exact video timestamps and save insights for later.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -77,34 +77,64 @@ export function Landing() {
         </div>
 
         {/* Features */}
-        <div className="grid md:grid-cols-3 gap-8 mt-24 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-8 mt-24 max-w-6xl mx-auto">
           <div className="p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card">
-            <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center mb-4">
-              <Youtube className="w-6 h-6 text-destructive" />
+            <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4">
+              <Mic className="w-6 h-6 text-purple-500" />
             </div>
-            <h3 className="font-display font-semibold text-lg mb-2">Add Any Channel</h3>
+            <h3 className="font-display font-semibold text-lg mb-2">Voice & Text Chat</h3>
             <p className="text-muted-foreground">
-              Paste a YouTube channel URL and we'll index all their videos automatically.
+              Have natural voice conversations or text chats with AI mentors. Real-time transcription and hands-free learning.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card">
+            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4">
+              <Brain className="w-6 h-6 text-blue-500" />
+            </div>
+            <h3 className="font-display font-semibold text-lg mb-2">Confidence-Backed Answers</h3>
+            <p className="text-muted-foreground">
+              Every answer includes confidence levels (high, medium, low) so you know exactly how reliable the information is.
             </p>
           </div>
           
           <div className="p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
-              <Zap className="w-6 h-6 text-primary" />
+            <div className="w-12 h-12 rounded-xl bg-destructive/10 flex items-center justify-center mb-4">
+              <Youtube className="w-6 h-6 text-destructive" />
             </div>
-            <h3 className="font-display font-semibold text-lg mb-2">Instant Answers</h3>
+            <h3 className="font-display font-semibold text-lg mb-2">Exact Video Citations</h3>
             <p className="text-muted-foreground">
-              Ask any question and get AI-powered answers with exact video timestamps.
+              Click timestamps to watch the exact moment in the video. Verify every insight directly from the source.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center mb-4">
+              <Bookmark className="w-6 h-6 text-amber-500" />
+            </div>
+            <h3 className="font-display font-semibold text-lg mb-2">Save & Organize Insights</h3>
+            <p className="text-muted-foreground">
+              Bookmark valuable answers and build your personal knowledge library. Access saved insights anytime.
             </p>
           </div>
           
           <div className="p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card">
             <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-4">
-              <Shield className="w-6 h-6 text-emerald-500" />
+              <Search className="w-6 h-6 text-emerald-500" />
+            </div>
+            <h3 className="font-display font-semibold text-lg mb-2">Full Chat Search</h3>
+            <p className="text-muted-foreground">
+              Search across all your conversations to find past insights instantly. Never lose valuable information.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+              <Shield className="w-6 h-6 text-primary" />
             </div>
             <h3 className="font-display font-semibold text-lg mb-2">Private & Secure</h3>
             <p className="text-muted-foreground">
-              Your chat history is private. Only you can see your conversations.
+              Your conversations and saved answers are completely private. Only you can access your learning journey.
             </p>
           </div>
         </div>
@@ -171,7 +201,7 @@ export function Landing() {
               Your Personal AI Mentor for Every Creator
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Get instant access to any creator's knowledge through AI-powered conversations. Ask specific questions and get precise answers with video citations.
+              Get instant access to any creator's knowledge through voice or text conversations. Ask specific questions and get precise, confidence-backed answers with video citations.
             </p>
           </div>
 
@@ -188,33 +218,91 @@ export function Landing() {
             <div className="space-y-6">
               <div className="flex items-start gap-4">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                  <CheckCircle className="w-4 h-4 text-primary" />
+                  <Mic className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Instant Expert Access</h3>
-                  <p className="text-muted-foreground">Chat with AI trained on your favorite creator's entire content library. Get personalized advice instantly.</p>
+                  <h3 className="font-semibold text-lg mb-2">Voice or Text - Your Choice</h3>
+                  <p className="text-muted-foreground">Have natural voice conversations while multitasking or text chat when you prefer. Real-time transcription keeps everything searchable.</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-4">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                  <CheckCircle className="w-4 h-4 text-primary" />
+                  <Brain className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Verified Answers</h3>
-                  <p className="text-muted-foreground">Every response includes exact video timestamps so you can verify and dive deeper into the original content.</p>
+                  <h3 className="font-semibold text-lg mb-2">Confidence-Backed Answers</h3>
+                  <p className="text-muted-foreground">Every response includes confidence levels (high, medium, low) and exact video timestamps so you can verify and dive deeper.</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-4">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
-                  <CheckCircle className="w-4 h-4 text-primary" />
+                  <Bookmark className="w-4 h-4 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-lg mb-2">Unlimited Learning</h3>
-                  <p className="text-muted-foreground">Ask as many questions as you want. Build your knowledge systematically without time or cost constraints.</p>
+                  <h3 className="font-semibold text-lg mb-2">Build Your Knowledge Library</h3>
+                  <p className="text-muted-foreground">Save valuable insights, search past conversations, and organize your learning journey. Never lose important information again.</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* How It Works Section */}
+        <div className="mt-32 max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-6">
+              How It Works
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Start learning from your favorite creators in minutes
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Youtube className="w-8 h-8 text-primary" />
+              </div>
+              <div className="text-2xl font-bold text-primary mb-2">1</div>
+              <h3 className="font-semibold mb-2">Add Channel</h3>
+              <p className="text-sm text-muted-foreground">
+                Paste any YouTube channel URL and we'll index their videos
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Zap className="w-8 h-8 text-primary" />
+              </div>
+              <div className="text-2xl font-bold text-primary mb-2">2</div>
+              <h3 className="font-semibold mb-2">Ask Questions</h3>
+              <p className="text-sm text-muted-foreground">
+                Chat via voice or text about anything from their content
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-primary" />
+              </div>
+              <div className="text-2xl font-bold text-primary mb-2">3</div>
+              <h3 className="font-semibold mb-2">Get Cited Answers</h3>
+              <p className="text-sm text-muted-foreground">
+                Receive confidence-backed answers with exact video timestamps
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Bookmark className="w-8 h-8 text-primary" />
+              </div>
+              <div className="text-2xl font-bold text-primary mb-2">4</div>
+              <h3 className="font-semibold mb-2">Save & Organize</h3>
+              <p className="text-sm text-muted-foreground">
+                Bookmark insights and build your personal knowledge base
+              </p>
             </div>
           </div>
         </div>
@@ -226,7 +314,7 @@ export function Landing() {
               Perfect for Every Learning Goal
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Whether you're studying, building a business, or developing skills, get personalized guidance from the world's best creators.
+              Whether you're studying, building a business, or developing skills, get personalized one-to-one mentorship from the world's best creators.
             </p>
           </div>
 
@@ -237,10 +325,21 @@ export function Landing() {
               </div>
               <h3 className="font-display font-semibold text-lg mb-3">Students & Researchers</h3>
               <p className="text-muted-foreground mb-4">
-                Study complex topics by chatting with educational creators. Get explanations, examples, and study guidance tailored to your questions.
+                Get one-to-one mentorship for exam prep, research projects, and concept clarification. Save key insights and search past conversations for study sessions.
               </p>
-              <div className="text-sm text-muted-foreground">
-                <strong>Example:</strong> "Explain quantum mechanics like Veritasium would, with practical examples"
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <span>Ask complex questions with confidence-backed answers</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <span>Verify every fact with video timestamp citations</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <span>Build study guides from saved answers</span>
+                </div>
               </div>
             </div>
 
@@ -250,23 +349,45 @@ export function Landing() {
               </div>
               <h3 className="font-display font-semibold text-lg mb-3">Entrepreneurs & Founders</h3>
               <p className="text-muted-foreground mb-4">
-                Get business advice from successful entrepreneurs. Learn from their experiences, strategies, and lessons without expensive consulting.
+                Get personalized business advice from successful entrepreneurs. Learn strategies, avoid mistakes, and accelerate growth without expensive consulting.
               </p>
-              <div className="text-sm text-muted-foreground">
-                <strong>Example:</strong> "How would Gary Vaynerchuk approach social media marketing for a SaaS startup?"
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>Voice chat while working on your startup</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>Save actionable advice for implementation</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                  <span>Search past insights when making decisions</span>
+                </div>
               </div>
             </div>
 
             <div className="p-6 rounded-2xl border border-gray-200 dark:border-gray-800 bg-card hover:shadow-lg transition-shadow">
               <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4">
-                <Users className="w-6 h-6 text-purple-500" />
+                <Target className="w-6 h-6 text-purple-500" />
               </div>
-              <h3 className="font-display font-semibold text-lg mb-3">Professionals & Creators</h3>
+              <h3 className="font-display font-semibold text-lg mb-3">Professionals & Skill Builders</h3>
               <p className="text-muted-foreground mb-4">
-                Level up your skills by learning from industry experts. Get specific advice on techniques, tools, and career development.
+                Level up your career with hands-free learning during commutes. Get specific guidance on techniques, tools, and professional development.
               </p>
-              <div className="text-sm text-muted-foreground">
-                <strong>Example:</strong> "What editing techniques does Peter McKinnon recommend for cinematic videos?"
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                  <span>Voice conversations while commuting or exercising</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                  <span>Organize insights by skill or project</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-purple-500 mt-0.5 flex-shrink-0" />
+                  <span>Track learning progress with conversation history</span>
+                </div>
               </div>
             </div>
           </div>
@@ -330,13 +451,13 @@ export function Landing() {
         <div className="mt-32 max-w-4xl mx-auto text-center">
           <div className="p-12 rounded-3xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
             <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-6">
-              Start Learning from Your Favorite Creators Today
+              Start Your One-to-One Mentorship Journey Today
             </h2>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Join thousands of learners who've unlocked unlimited access to creator knowledge. 
-              No more expensive coaching or endless video searching.
+              Join learners worldwide who've unlocked unlimited access to creator knowledge through voice and text conversations. 
+              Get confidence-backed answers, save insights, and build your personal knowledge library.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-6">
               <Button size="lg" onClick={() => navigate('/auth?signup=true')} className="h-12 px-8 text-base">
                 Get Started Free
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -345,9 +466,24 @@ export function Landing() {
                 Sign In
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              Free to start • No credit card required • Add any YouTube channel
-            </p>
+            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-primary" />
+                <span>Free to start</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-primary" />
+                <span>Voice & text chat</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-primary" />
+                <span>Confidence-backed answers</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-primary" />
+                <span>Save unlimited insights</span>
+              </div>
+            </div>
           </div>
         </div>
       </main>
